@@ -50,7 +50,7 @@ const USE_AGENTIC_TINKERER = process.env.USE_AGENTIC_TINKERER !== 'false'; // De
 // Optimized timeout configuration for production
 const NOAH_TIMEOUT = 45000; // 45 seconds for Noah direct responses
 const WANDERER_TIMEOUT = 30000; // 30 seconds for fast research (Haiku)
-const TINKERER_TIMEOUT = 60000; // 60 seconds for deep building (Sonnet 4)
+const TINKERER_TIMEOUT = 120000; // 120 seconds for agentic deep building (allows 3 iterations: ~30s generation + ~10s evaluation × 3)
 
 // Session-based artifact storage (simple in-memory for MVP)
 const sessionArtifacts = new Map<string, Array<{

@@ -9,8 +9,9 @@ import { withLogging, LoggingContext } from '@/lib/logging-middleware';
 import { createLLMProvider } from '@/lib/providers/provider-factory';
 import { WandererAgent } from '@/lib/agents/wanderer-agent';
 import { PracticalAgent } from '@/lib/agents/practical-agent';
+import { PracticalAgentAgentic } from '@/lib/agents/practical-agent-agentic';
 import { sharedResourceManager, type AgentSharedResources } from '@/lib/agents/shared-resources';
-import type { ChatMessage } from '@/lib/agents/types';
+import type { ChatMessage, AgentResponse } from '@/lib/agents/types';
 import { analyticsService } from '@/lib/analytics';
 import { analyticsPool } from '@/lib/analytics/connection-pool';
 import { NoahSafetyService } from '@/lib/safety';
@@ -39,9 +40,12 @@ Keep tools concise but fully functional.`;
 
 // 🚀 MODULE-LEVEL AGENT CACHING - Initialize ONCE, reuse forever
 let wandererInstance: WandererAgent | null = null;
-let tinkererInstance: PracticalAgent | null = null;
+let tinkererInstance: PracticalAgent | PracticalAgentAgentic | null = null;
 let sharedResourcesCache: AgentSharedResources | null = null;
 let agentInitializationPromise: Promise<void> | null = null;
+
+// Feature flag: Use agentic version of Tinkerer
+const USE_AGENTIC_TINKERER = process.env.USE_AGENTIC_TINKERER !== 'false'; // Default to true
 
 // Optimized timeout configuration for production
 const NOAH_TIMEOUT = 45000; // 45 seconds for Noah direct responses
@@ -202,8 +206,23 @@ async function ensureAgentsInitialized(): Promise<void> {
       // Initialize Tinkerer with deep-build optimized provider
       if (!tinkererInstance) {
         const deepbuildProvider = createLLMProvider('deepbuild');
-        tinkererInstance = new PracticalAgent(deepbuildProvider, { temperature: 0.3, maxTokens: 4000 }, sharedResourcesCache);
-        logger.info('✅ Tinkerer agent cached with deepbuild provider');
+
+        if (USE_AGENTIC_TINKERER) {
+          tinkererInstance = new PracticalAgentAgentic(
+            deepbuildProvider,
+            {
+              temperature: 0.3,
+              maxTokens: 4000,
+              maxIterations: 3,
+              confidenceThreshold: 0.8
+            },
+            sharedResourcesCache
+          );
+          logger.info('✅ Tinkerer agent (AGENTIC) cached with deepbuild provider');
+        } else {
+          tinkererInstance = new PracticalAgent(deepbuildProvider, { temperature: 0.3, maxTokens: 4000 }, sharedResourcesCache);
+          logger.info('✅ Tinkerer agent (LEGACY) cached with deepbuild provider');
+        }
       }
 
       logger.info('🎉 All agents initialized and cached');
@@ -246,7 +265,7 @@ async function wandererResearch(messages: ChatMessage[], context: LoggingContext
 /**
  * 🔧 Tinkerer build using cached instance
  */
-async function tinkererBuild(messages: ChatMessage[], research: { content: string } | null, context: LoggingContext): Promise<{ content: string }> {
+async function tinkererBuild(messages: ChatMessage[], research: { content: string } | null, context: LoggingContext): Promise<AgentResponse> {
   await ensureAgentsInitialized();
 
   if (!tinkererInstance) {
@@ -259,14 +278,14 @@ async function tinkererBuild(messages: ChatMessage[], research: { content: strin
     ? `${tinkererLastMessage}\n\nResearch Context:\n${research.content}`
     : tinkererLastMessage;
 
-  const tool = await tinkererInstance.processRequest({
+  const toolResponse = await tinkererInstance.processRequest({
     id: `build_${Date.now()}`,
     sessionId: context.sessionId,
     content: buildContent,
     timestamp: new Date()
   });
 
-  return { content: tool.content };
+  return toolResponse;
 }
 
 /**
@@ -390,7 +409,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
       confidence: analysis.confidence
     });
 
-    let result: { content: string };
+    let result: { content: string } | AgentResponse;
     let agentUsed: 'noah' | 'wanderer' | 'tinkerer' = 'noah';
     let agentStrategy = 'noah_direct';
 
@@ -404,7 +423,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
           logger.info('🔧 Noah chaining to Tinkerer for building...');
           agentUsed = 'tinkerer';
           const tool = await withTimeout(tinkererBuild(messages, research, context), TINKERER_TIMEOUT);
-          result = { content: tool.content };
+          result = tool; // Keep full AgentResponse
         } else {
           result = { content: research.content };
         }
@@ -413,7 +432,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
         agentUsed = 'tinkerer';
         agentStrategy = 'noah_tinkerer';
         const tool = await withTimeout(tinkererBuild(messages, null, context), TINKERER_TIMEOUT);
-        result = { content: tool.content };
+        result = tool; // Keep full AgentResponse
       } else {
         // Noah handles directly - use fast model for tool generation, premium for conversation
         const lastMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
@@ -469,7 +488,13 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
         'assistant',
         result.content,
         responseTime,
-        agentUsed
+        agentUsed,
+        // Include agentic metadata if available from agent response
+        agentUsed === 'tinkerer' && USE_AGENTIC_TINKERER && 'confidence' in result ? {
+          confidence: result.confidence,
+          iterationCount: result.metadata?.iterationsUsed,
+          agenticBehavior: true
+        } : undefined
       );
       
       // Log agent strategy for transparency in message metadata

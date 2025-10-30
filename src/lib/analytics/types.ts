@@ -38,6 +38,10 @@ export interface MessageData {
   reasoning?: string;
   sentiment?: 'positive' | 'negative' | 'neutral' | 'skeptical';
   skepticModeActive?: boolean;
+  // Agentic behavior tracking
+  confidence?: number; // 0.0-1.0 confidence score from self-evaluation
+  iterationCount?: number; // Number of iterations taken for this response
+  agenticBehavior?: boolean; // True if agent used self-evaluation/revision
 }
 
 export interface GeneratedToolData {
@@ -57,6 +61,10 @@ export interface GeneratedToolData {
   agentStrategy?: string;  // noah_direct, noah_wanderer, noah_tinkerer, etc.
   version?: number;
   downloadCount?: number;
+  // Agentic behavior tracking
+  confidence?: number; // Final confidence score
+  iterationCount?: number; // Number of revision iterations
+  qualityScores?: Record<string, number>; // Detailed quality metrics
 }
 
 export interface ToolUsageEvent {

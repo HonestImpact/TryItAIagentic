@@ -127,7 +127,12 @@ class AnalyticsService {
     role: 'user' | 'assistant',
     content: string,
     responseTimeMs?: number,
-    agentInvolved?: 'noah' | 'wanderer' | 'tinkerer'
+    agentInvolved?: 'noah' | 'wanderer' | 'tinkerer',
+    agenticMetadata?: {
+      confidence?: number;
+      iterationCount?: number;
+      agenticBehavior?: boolean;
+    }
   ): void {
     if (!this.isEnabled || !conversationId) return;
 
@@ -144,7 +149,11 @@ class AnalyticsService {
           wordCount: this.countWords(content),
           messageType: this.inferMessageType(content, role),
           responseTimeMs,
-          agentInvolved
+          agentInvolved,
+          // Agentic behavior tracking
+          confidence: agenticMetadata?.confidence,
+          iterationCount: agenticMetadata?.iterationCount,
+          agenticBehavior: agenticMetadata?.agenticBehavior
         };
 
         await analyticsDb.logMessage(messageData);

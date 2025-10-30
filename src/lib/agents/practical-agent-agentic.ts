@@ -270,11 +270,10 @@ Please generate an IMPROVED version addressing the feedback above.`;
       enhancedContent = `${enhancedContent}\n\n${state.knowledgeContext}`;
     }
 
-    // Generate the implementation
+    // Generate the implementation (use provider's configured model)
     const result = await this.llmProvider.generateText({
       messages: [{ role: 'user', content: enhancedContent }],
       system: this.getEnhancedSystemPrompt(state.knowledgeContext || ''),
-      model: process.env.LLM_DEEPBUILD_ID || process.env.LLM_DEFAULT_ID || 'gpt-4o',
       temperature: 0.3
     });
 
@@ -325,10 +324,10 @@ Respond in this EXACT JSON format:
 }`;
 
     try {
+      // Use provider's configured model for evaluation
       const evaluationResult = await this.llmProvider.generateText({
         messages: [{ role: 'user', content: evaluationPrompt }],
         system: 'You are a technical quality evaluator. Respond ONLY with valid JSON.',
-        model: process.env.LLM_DEFAULT_ID || 'claude-sonnet-4-20250514',
         temperature: 0.2 // Low temperature for consistent evaluation
       });
 

@@ -18,6 +18,7 @@ import type {
   AgentResponse,
   LLMProvider
 } from './types';
+import type { AgenticServices, WorkflowMemory } from '../services/agentic';
 
 const logger = createLogger('tinkerer-agentic');
 
@@ -28,6 +29,7 @@ interface TinkererState extends AgentState {
   // Knowledge enhancement
   knowledgeContext?: string;
   patternsUsed?: string[];
+  collaborationInsights?: string[]; // IDs of insights used
 
   // Generation tracking
   generationAttempts: number;
@@ -43,12 +45,15 @@ interface TinkererState extends AgentState {
 
 export class PracticalAgentAgentic extends LangGraphBaseAgent {
   private readonly sharedResources?: AgentSharedResources;
+  private readonly agenticServices?: AgenticServices;
   private workflow: any; // StateGraph workflow instance
+  private workflowStartTime: number = 0;
 
   constructor(
     llmProvider: LLMProvider,
     config: LangGraphAgentConfig = {},
-    sharedResources?: AgentSharedResources
+    sharedResources?: AgentSharedResources,
+    agenticServices?: AgenticServices
   ) {
     const capabilities: AgentCapability[] = [
       {
@@ -67,7 +72,17 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
     });
 
     this.sharedResources = sharedResources;
+    this.agenticServices = agenticServices;
     this.workflow = this.buildWorkflow();
+
+    if (agenticServices) {
+      logger.info('🧠 Agentic services enabled', {
+        hasMetacognition: !!agenticServices.metacognition,
+        hasEvaluation: !!agenticServices.evaluation,
+        hasLearning: !!agenticServices.learning,
+        hasSecurity: !!agenticServices.security
+      });
+    }
   }
 
   /**
@@ -95,22 +110,28 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
         knowledgeContext: null,
         patternsUsed: null,
         generationAttempts: null,
-        qualityScores: null
+        qualityScores: null,
+        synthesisPlan: null,  // Pattern synthesis plan for creative combination
+        beautyCheckResult: null  // 💎 Beauty check assessment (code elegance, readability, craft)
       }
     });
 
     // Add workflow nodes
     graph.addNode('reasoning', this.reasoningNode.bind(this));
     graph.addNode('knowledge_enhancement', this.knowledgeEnhancementNode.bind(this));
+    graph.addNode('synthesis', this.synthesisNode.bind(this));  // 🎨 NEW: Pattern synthesis
     graph.addNode('generation', this.generationNode.bind(this));
+    graph.addNode('beauty_check', this.beautyCheckNode.bind(this));  // 💎 NEW: Noah's excellence validation
     graph.addNode('self_evaluation', this.selfEvaluationNode.bind(this));
     graph.addNode('revision', this.revisionNode.bind(this));
 
     // Define workflow edges
     graph.addEdge('__start__', 'reasoning');
     graph.addEdge('reasoning', 'knowledge_enhancement');
-    graph.addEdge('knowledge_enhancement', 'generation');
-    graph.addEdge('generation', 'self_evaluation');
+    graph.addEdge('knowledge_enhancement', 'synthesis');  // 🎨 NEW: Synthesize patterns before generation
+    graph.addEdge('synthesis', 'generation');
+    graph.addEdge('generation', 'beauty_check');  // 💎 NEW: Check elegance and craft before evaluation
+    graph.addEdge('beauty_check', 'self_evaluation');
 
     // Conditional edge: should revise or complete?
     graph.addConditionalEdges(
@@ -128,6 +149,98 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
   }
 
   /**
+   * 🎯 AGENTIC ROUTING: Evaluate whether this agent should handle the request
+   *
+   * This method enables truly agentic routing by allowing the agent to autonomously
+   * decide if it should handle a request based on its capabilities, not keyword matching.
+   *
+   * @param requestContent - The user's request content
+   * @returns Promise<{ confidence: number, reasoning: string }>
+   *   - confidence: 0.0-1.0, how confident the agent is it should handle this
+   *   - reasoning: Explanation of why this confidence level
+   *
+   * @example
+   * const bid = await tinkerer.evaluateRequest("Build a React dashboard");
+   * // { confidence: 0.95, reasoning: "Complex code generation task matches my specialization..." }
+   */
+  async evaluateRequest(requestContent: string): Promise<{ confidence: number; reasoning: string }> {
+    logger.debug('Tinkerer evaluating request for agentic routing', {
+      contentLength: requestContent.length
+    });
+
+    try {
+      // Use LLM to analyze request fit
+      const prompt = `You are the Tinkerer agent, specialized in building production-ready code, React components, interactive tools, and technical implementations.
+
+Your capabilities:
+- Creating React components with modern patterns
+- Building interactive dashboards and data visualizations
+- Implementing forms with validation
+- Developing full-featured web applications
+- Writing production-quality code with best practices
+
+Analyze this user request and determine how confident you are that YOU should handle it (0.0-1.0):
+
+User Request: "${requestContent}"
+
+Consider:
+1. Does this require code generation or building something?
+2. Does this match your technical implementation specialization?
+3. Is this within your capability scope?
+4. How complex is the implementation required?
+
+Return a JSON object with:
+{
+  "confidence": <number 0.0-1.0>,
+  "reasoning": "<brief explanation of your confidence level>"
+}
+
+Examples:
+- "Build a React dashboard" → confidence: 0.95 (perfect match for your skills)
+- "Create a simple calculator" → confidence: 0.90 (straightforward code generation)
+- "Research best practices for React hooks" → confidence: 0.3 (research task, not building)
+- "How do I use useState?" → confidence: 0.2 (conversational, not building)
+- "What's the weather like?" → confidence: 0.05 (completely outside your domain)`;
+
+      const response = await this.llm.generateText({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1, // Low temperature for consistent evaluation
+        maxTokens: 200
+      });
+
+      // Parse JSON response
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+
+        logger.info('Tinkerer evaluation complete', {
+          confidence: result.confidence,
+          reasoning: result.reasoning?.substring(0, 100)
+        });
+
+        return {
+          confidence: Math.max(0, Math.min(1, result.confidence)), // Clamp to [0, 1]
+          reasoning: result.reasoning || 'No reasoning provided'
+        };
+      }
+
+      // Fallback if parsing fails
+      logger.warn('Failed to parse Tinkerer evaluation response, using fallback');
+      return {
+        confidence: 0.5,
+        reasoning: 'Unable to evaluate - defaulting to moderate confidence'
+      };
+
+    } catch (error) {
+      logger.error('Tinkerer evaluation failed', { error });
+      return {
+        confidence: 0.3,
+        reasoning: 'Evaluation error - low confidence fallback'
+      };
+    }
+  }
+
+  /**
    * Main entry point - executes the LangGraph workflow
    */
   async processRequest(request: AgentRequest): Promise<AgentResponse> {
@@ -135,6 +248,8 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
       requestId: request.id,
       contentLength: request.content.length
     });
+
+    this.workflowStartTime = Date.now();
 
     try {
       // Create initial state
@@ -160,11 +275,90 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
         patternsUsed: finalState.patternsUsed?.length || 0
       });
 
+      // Record workflow outcome for learning (if services available and quality high enough)
+      await this.recordWorkflowOutcome(finalState, request.content);
+
       return response;
 
     } catch (error) {
       logger.error('Tinkerer (Agentic) processing failed', { error });
       return this.generateErrorResponse(request, error);
+    }
+  }
+
+  /**
+   * Record workflow outcome for learning service
+   * Only records high-confidence successes to learn from good work
+   */
+  private async recordWorkflowOutcome(state: TinkererState, userRequest: string): Promise<void> {
+    if (!this.agenticServices?.learning || !state.confidence) {
+      return;
+    }
+
+    const workflowTime = Date.now() - this.workflowStartTime;
+
+    // Determine what worked and what didn't
+    const whatWorked: string[] = [];
+    const whatDidntWork: string[] = [];
+
+    if (state.patternsUsed && state.patternsUsed.length > 0) {
+      whatWorked.push(`Used ${state.patternsUsed.length} relevant patterns`);
+    }
+
+    if (state.iterationCount === 1 && state.confidence >= 0.8) {
+      whatWorked.push('First-attempt success with high quality');
+    }
+
+    if (state.iterationCount > 1 && state.confidence >= 0.8) {
+      whatWorked.push('Successfully improved through iteration');
+    }
+
+    if (state.iterationCount >= 3 && state.confidence < 0.7) {
+      whatDidntWork.push('Multiple iterations did not significantly improve quality');
+    }
+
+    // Record success if confidence is high (>= 0.7)
+    if (state.confidence >= 0.7) {
+      const memory: WorkflowMemory = {
+        domain: 'code-generation',
+        context: userRequest.substring(0, 200), // Summary of request
+        approach: state.evaluationReasoning || 'Technical implementation with agentic workflow',
+        patternsUsed: state.patternsUsed || [],
+        outcome: {
+          confidence: state.confidence,
+          time: workflowTime,
+          iterations: state.iterationCount
+        },
+        whatWorked,
+        whatDidntWork,
+        timestamp: new Date()
+      };
+
+      try {
+        await this.agenticServices.learning.recordSuccess(memory);
+        logger.info('📚 Recorded successful workflow for learning', {
+          confidence: state.confidence,
+          iterations: state.iterationCount,
+          patterns: state.patternsUsed?.length || 0
+        });
+      } catch (error) {
+        logger.warn('Failed to record learning outcome', { error });
+      }
+    } else {
+      // Record failure pattern if quality was low
+      try {
+        await this.agenticServices.learning.recordFailure(
+          'code-generation',
+          state.evaluationReasoning || 'Unknown approach',
+          `Low confidence (${state.confidence?.toFixed(2)}) after ${state.iterationCount} iterations`
+        );
+        logger.info('📝 Recorded failure pattern for learning', {
+          confidence: state.confidence,
+          iterations: state.iterationCount
+        });
+      } catch (error) {
+        logger.warn('Failed to record failure pattern', { error });
+      }
     }
   }
 
@@ -195,11 +389,13 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
   }
 
   /**
-   * KNOWLEDGE ENHANCEMENT NODE: Get relevant design patterns
+   * KNOWLEDGE ENHANCEMENT NODE: Get relevant design patterns and learn from past successes
+   * Combines RAG design patterns with LearningService best practices
    */
   private async knowledgeEnhancementNode(state: TinkererState): Promise<Partial<TinkererState>> {
-    logger.info('🧠 Enhancing with design patterns', {
-      iteration: state.iterationCount
+    logger.info('🧠 Enhancing with design patterns and learning', {
+      iteration: state.iterationCount,
+      hasLearningService: !!this.agenticServices?.learning
     });
 
     state.currentStep = 'knowledge_enhancement';
@@ -207,7 +403,7 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
     let knowledgeContext = '';
     let patternsUsed: string[] = [];
 
-    // Get relevant design patterns if tool knowledge service is available
+    // 1. Get relevant design patterns from RAG if tool knowledge service is available
     if (this.sharedResources?.toolKnowledgeService) {
       try {
         const knowledgeResult = await this.sharedResources.toolKnowledgeService.getRelevantPatterns(
@@ -216,7 +412,7 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
         );
 
         if (knowledgeResult.patterns.length > 0) {
-          logger.info('✅ Found relevant patterns', {
+          logger.info('✅ Found relevant RAG patterns', {
             patternsCount: knowledgeResult.patterns.length,
             topPattern: knowledgeResult.patterns[0]?.title
           });
@@ -225,15 +421,244 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
           patternsUsed = knowledgeResult.patterns.map(p => p.title);
         }
       } catch (error) {
-        logger.warn('Knowledge enhancement failed, proceeding without patterns', { error });
+        logger.warn('RAG pattern retrieval failed', { error });
+      }
+    }
+
+    // 2. Get pattern recommendations from Pattern Library
+    if (this.agenticServices?.patterns) {
+      try {
+        const patternRecommendations = this.agenticServices.patterns.findPatterns(
+          state.userRequest
+        );
+
+        if (patternRecommendations.length > 0) {
+          logger.info('📐 Found pattern recommendations', {
+            count: patternRecommendations.length,
+            topPattern: patternRecommendations[0].pattern.name,
+            relevance: (patternRecommendations[0].relevanceScore * 100).toFixed(0) + '%'
+          });
+
+          // Append pattern recommendations to knowledge context
+          let patternContext = '\n\nRECOMMENDED PATTERNS:\n\n';
+          patternRecommendations.forEach((rec, index) => {
+            patternContext += `${index + 1}. ${rec.pattern.name} (${(rec.relevanceScore * 100).toFixed(0)}% relevance)\n`;
+            patternContext += `   ${rec.pattern.description}\n`;
+            patternContext += `   When to use: ${rec.pattern.whenToUse.join(', ')}\n`;
+            if (rec.pattern.successRate) {
+              patternContext += `   Success rate: ${(rec.pattern.successRate * 100).toFixed(0)}%\n`;
+            }
+            patternContext += `   ${rec.reasoning}\n\n`;
+            patternsUsed.push(rec.pattern.name);
+          });
+
+          knowledgeContext += patternContext;
+        }
+      } catch (error) {
+        logger.warn('Pattern library retrieval failed', { error });
+      }
+    }
+
+    // 2.5 Get insights from other agents (Collaboration Service)
+    if (this.agenticServices?.collaboration) {
+      try {
+        // Infer domain from request (simple keyword extraction)
+        const domain = this.inferDomain(state.userRequest);
+        const tags = this.extractTags(state.userRequest);
+
+        const agentInsights = this.agenticServices.collaboration.queryInsights({
+          requestingAgent: 'tinkerer',
+          requestType: 'patterns',
+          context: state.userRequest,
+          domain,
+          tags
+        });
+
+        if (agentInsights.length > 0) {
+          logger.info('🤝 Found insights from other agents', {
+            count: agentInsights.length,
+            topAgent: agentInsights[0].agentName,
+            topCategory: agentInsights[0].category
+          });
+
+          // Append agent insights to knowledge context
+          let collaborationContext = '\n\nINSIGHTS FROM OTHER AGENTS:\n\n';
+          agentInsights.forEach((insight, index) => {
+            collaborationContext += `${index + 1}. From ${insight.agentName} (${insight.category}):\n`;
+            collaborationContext += `   "${insight.insight}"\n`;
+            collaborationContext += `   Confidence: ${(insight.confidence * 100).toFixed(0)}%, `;
+            collaborationContext += `Success rate: ${(insight.successRate * 100).toFixed(0)}%\n`;
+            if (insight.evidence) {
+              collaborationContext += `   Evidence: ${insight.evidence}\n`;
+            }
+            collaborationContext += `\n`;
+          });
+
+          knowledgeContext += collaborationContext;
+
+          // Store these insights for later feedback
+          state.collaborationInsights = agentInsights.map(i => i.id);
+        }
+      } catch (error) {
+        logger.warn('Collaboration service retrieval failed', { error });
+      }
+    }
+
+    // 3. Get best practices from past successful workflows (LearningService)
+    if (this.agenticServices?.learning) {
+      try {
+        const bestPractices = await this.agenticServices.learning.getBestPractices(
+          'code-generation',
+          state.userRequest
+        );
+
+        if (bestPractices.length > 0) {
+          logger.info('📚 Found best practices from learning', {
+            practiceCount: bestPractices.length,
+            topConfidence: bestPractices[0].confidence
+          });
+
+          // Append best practices to knowledge context
+          let learningContext = '\n\nBEST PRACTICES FROM PAST SUCCESSES:\n\n';
+          bestPractices.forEach((practice, index) => {
+            learningContext += `${index + 1}. ${practice.approach} (Confidence: ${(practice.confidence * 100).toFixed(0)}%)\n`;
+            if (practice.whatWorked.length > 0) {
+              learningContext += `   What worked: ${practice.whatWorked.join(', ')}\n`;
+            }
+            if (practice.patternsUsed.length > 0) {
+              learningContext += `   Patterns: ${practice.patternsUsed.join(', ')}\n`;
+              patternsUsed.push(...practice.patternsUsed);
+            }
+            learningContext += '\n';
+          });
+
+          knowledgeContext += learningContext;
+        }
+
+        // Also check for known pitfalls to avoid
+        const pitfalls = await this.agenticServices.learning.getKnownPitfalls('code-generation');
+        if (pitfalls.length > 0) {
+          logger.info('⚠️  Found known pitfalls to avoid', { count: pitfalls.length });
+          knowledgeContext += '\n\nKNOWN PITFALLS TO AVOID:\n';
+          pitfalls.forEach((pitfall, index) => {
+            knowledgeContext += `${index + 1}. ${pitfall}\n`;
+          });
+          knowledgeContext += '\n';
+        }
+
+      } catch (error) {
+        logger.warn('Learning service retrieval failed', { error });
       }
     }
 
     return {
       knowledgeContext,
-      patternsUsed,
+      patternsUsed: [...new Set(patternsUsed)], // Deduplicate
       currentStep: 'knowledge_enhanced'
     };
+  }
+
+  /**
+   * 🎨 SYNTHESIS NODE: Creatively combine patterns into novel solutions
+   *
+   * Don't just copy patterns - SYNTHESIZE them into something better.
+   * Analyze strengths, combine best aspects, and add innovations.
+   *
+   * This transforms pattern retrieval from "here are 3 patterns" to
+   * "take the layout from A, interaction model from B, and add [novel innovation]"
+   */
+  private async synthesisNode(state: TinkererState): Promise<Partial<TinkererState>> {
+    logger.info('🎨 Synthesizing creative solution from patterns', {
+      iteration: state.iterationCount,
+      patternsAvailable: state.patternsUsed?.length || 0,
+      hasKnowledge: !!state.knowledgeContext
+    });
+
+    state.currentStep = 'synthesis';
+
+    // If no patterns or only one pattern, skip synthesis (no combination needed)
+    if (!state.patternsUsed || state.patternsUsed.length < 2) {
+      logger.info('Skipping synthesis - insufficient patterns for combination', {
+        patternCount: state.patternsUsed?.length || 0
+      });
+      return {
+        synthesisPlan: null,
+        currentStep: 'synthesis_skipped'
+      };
+    }
+
+    try {
+      const synthesisPrompt = `You are a creative technical architect synthesizing design patterns.
+
+USER REQUEST:
+${state.userRequest}
+
+AVAILABLE PATTERNS (${state.patternsUsed.length}):
+${state.knowledgeContext}
+
+SYNTHESIS TASK:
+Don't just copy these patterns. COMBINE their best aspects into something better:
+
+1. ANALYZE: What makes each pattern effective for this specific request?
+2. IDENTIFY: Which strengths from each pattern apply here?
+3. SYNTHESIZE: How can you combine/enhance these patterns creatively?
+4. INNOVATE: What can you add that's NOT in any pattern?
+
+Think like a chef creating a signature dish - you're not following a single recipe,
+you're combining techniques and adding your own flair.
+
+Respond with a synthesis plan in JSON format:
+{
+  "corePattern": "Which pattern provides the best foundation? Why?",
+  "enhancements": [
+    "What to borrow from pattern 2",
+    "What to borrow from pattern 3"
+  ],
+  "innovations": [
+    "Novel idea 1 not in any pattern",
+    "Novel idea 2 that improves on patterns"
+  ],
+  "integrationStrategy": "How will these elements work together cohesively?",
+  "reasoning": "Brief explanation of why this synthesis will be effective"
+}`;
+
+      const result = await this.llmProvider.generateText({
+        messages: [{ role: 'user', content: synthesisPrompt }],
+        system: 'You are a creative synthesis engine. Combine patterns innovatively.',
+        temperature: 0.5,  // Higher temp for creativity
+        maxTokens: 800
+      });
+
+      // Parse the synthesis plan
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const synthesisPlan = JSON.parse(jsonMatch[0]);
+
+        logger.info('✅ Pattern synthesis complete', {
+          corePattern: synthesisPlan.corePattern?.substring(0, 50),
+          enhancementsCount: synthesisPlan.enhancements?.length || 0,
+          innovationsCount: synthesisPlan.innovations?.length || 0
+        });
+
+        return {
+          synthesisPlan,
+          currentStep: 'synthesis_complete'
+        };
+      }
+
+      logger.warn('Failed to parse synthesis plan, proceeding without synthesis');
+      return {
+        synthesisPlan: null,
+        currentStep: 'synthesis_failed'
+      };
+
+    } catch (error) {
+      logger.error('Pattern synthesis failed', { error });
+      return {
+        synthesisPlan: null,
+        currentStep: 'synthesis_error'
+      };
+    }
   }
 
   /**
@@ -270,6 +695,37 @@ Please generate an IMPROVED version addressing the feedback above.`;
       enhancedContent = `${enhancedContent}\n\n${state.knowledgeContext}`;
     }
 
+    // Add synthesis plan if patterns were creatively combined
+    if (state.synthesisPlan) {
+      const synthesisPlan = state.synthesisPlan;
+      enhancedContent = `${enhancedContent}
+
+🎨 PATTERN SYNTHESIS PLAN (creative combination):
+
+CORE FOUNDATION:
+${synthesisPlan.corePattern}
+
+ENHANCEMENTS FROM OTHER PATTERNS:
+${synthesisPlan.enhancements?.map((e: string, i: number) => `${i + 1}. ${e}`).join('\n') || 'None'}
+
+INNOVATIONS (not in any pattern):
+${synthesisPlan.innovations?.map((inn: string, i: number) => `${i + 1}. ${inn}`).join('\n') || 'None'}
+
+INTEGRATION STRATEGY:
+${synthesisPlan.integrationStrategy}
+
+REASONING:
+${synthesisPlan.reasoning}
+
+IMPORTANT: Don't just copy patterns. Follow this synthesis plan to combine the best aspects creatively.`;
+
+      logger.info('🎨 Using pattern synthesis for generation', {
+        corePattern: synthesisPlan.corePattern?.substring(0, 40),
+        enhancementsCount: synthesisPlan.enhancements?.length || 0,
+        innovationsCount: synthesisPlan.innovations?.length || 0
+      });
+    }
+
     // Generate the implementation (use provider's configured model)
     const result = await this.llmProvider.generateText({
       messages: [{ role: 'user', content: enhancedContent }],
@@ -286,17 +742,162 @@ Please generate an IMPROVED version addressing the feedback above.`;
   }
 
   /**
-   * SELF-EVALUATION NODE: Assess quality and determine if revision needed
+   * 💎 BEAUTY CHECK NODE: Validate code elegance, readability, and craft
+   * Noah's Excellence: Code should be thoughtful, maintainable, and delightful
    */
-  private async selfEvaluationNode(state: TinkererState): Promise<Partial<TinkererState>> {
-    logger.info('📊 Self-evaluating quality', {
+  private async beautyCheckNode(state: TinkererState): Promise<Partial<TinkererState>> {
+    logger.info('💎 Performing beauty check (Noah\'s excellence standards)', {
       iteration: state.iterationCount,
       contentLength: state.generatedContent?.length || 0
     });
 
+    state.currentStep = 'beauty_check';
+
+    if (!state.generatedContent) {
+      logger.warn('No content to beauty check, skipping');
+      return {
+        beautyCheckResult: null,
+        currentStep: 'beauty_check_skipped'
+      };
+    }
+
+    try {
+      const beautyCheckPrompt = `You are Noah's craft inspector, evaluating code for elegance and excellence.
+
+CODE TO REVIEW:
+${state.generatedContent.substring(0, 4000)}
+
+🎯 NOAH'S EXCELLENCE CRITERIA:
+
+1. ELEGANCE (not cleverness):
+   - Is the code simple and readable?
+   - Are complex one-liners avoided in favor of clarity?
+   - Would a junior developer understand this in 6 months?
+
+2. MAINTAINABILITY:
+   - Are functions focused on a single purpose?
+   - Would future maintainers thank you or curse you?
+   - Is the code organized logically?
+
+3. CRAFT QUALITY:
+   - Variable names: userName, calculateTotalPrice (not u, calc)
+   - Comments: Explain WHY, not WHAT
+   - Error handling: Thoughtful, helpful messages
+   - Edge cases: Handled gracefully
+
+4. USER DELIGHT:
+   - Is the UX thoughtful and accessible?
+   - Are interactions smooth and intuitive?
+   - Would users find this delightful?
+
+5. TECHNICAL EXCELLENCE:
+   - Accessibility (semantic HTML, ARIA labels)
+   - Performance (minimal DOM operations)
+   - Security (input validation, XSS prevention)
+
+EVALUATION TASK:
+Rate each criterion (0.0-1.0) and identify specific improvements.
+
+Respond in JSON:
+{
+  "elegance": 0.0-1.0,
+  "maintainability": 0.0-1.0,
+  "craft": 0.0-1.0,
+  "userDelight": 0.0-1.0,
+  "technicalExcellence": 0.0-1.0,
+  "overallBeauty": 0.0-1.0,
+  "strengths": ["What's excellent about this code"],
+  "improvements": ["Specific things that could be more beautiful/elegant"],
+  "wouldShowToSeniorEngineer": true/false,
+  "reasoning": "Brief explanation of the beauty assessment"
+}`;
+
+      const result = await this.llmProvider.generateText({
+        messages: [{ role: 'user', content: beautyCheckPrompt }],
+        system: 'You are a craft inspector for Noah. You have high standards for code beauty and elegance.',
+        temperature: 0.2,  // Low temp for consistent evaluation
+        maxTokens: 600
+      });
+
+      // Parse the beauty check result
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const beautyResult = JSON.parse(jsonMatch[0]);
+
+        logger.info('✨ Beauty check complete', {
+          overallBeauty: beautyResult.overallBeauty?.toFixed(2),
+          wouldShow: beautyResult.wouldShowToSeniorEngineer,
+          strengthsCount: beautyResult.strengths?.length || 0,
+          improvementsCount: beautyResult.improvements?.length || 0
+        });
+
+        return {
+          beautyCheckResult: beautyResult,
+          currentStep: 'beauty_check_complete'
+        };
+      }
+
+      logger.warn('Failed to parse beauty check result');
+      return {
+        beautyCheckResult: null,
+        currentStep: 'beauty_check_parse_failed'
+      };
+
+    } catch (error) {
+      logger.error('Beauty check failed', { error });
+      return {
+        beautyCheckResult: null,
+        currentStep: 'beauty_check_error'
+      };
+    }
+  }
+
+  /**
+   * SELF-EVALUATION NODE: Assess quality and determine if revision needed
+   * Uses EvaluationService for calibrated, realistic quality assessment
+   */
+  private async selfEvaluationNode(state: TinkererState): Promise<Partial<TinkererState>> {
+    logger.info('📊 Self-evaluating quality', {
+      iteration: state.iterationCount,
+      contentLength: state.generatedContent?.length || 0,
+      usingEvaluationService: !!this.agenticServices?.evaluation
+    });
+
     state.currentStep = 'self_evaluation';
 
-    // Build evaluation prompt
+    // Use EvaluationService if available (provides calibrated realistic scores)
+    if (this.agenticServices?.evaluation) {
+      try {
+        const evaluation = await this.agenticServices.evaluation.evaluate({
+          content: state.generatedContent,
+          criteria: 'code-quality',
+          previousScores: state.qualityScores,
+          context: state.userRequest
+        });
+
+        logger.info('✅ EvaluationService assessment complete', {
+          overallConfidence: evaluation.overallConfidence,
+          needsRevision: evaluation.needsRevision,
+          scores: evaluation.scores
+        });
+
+        return {
+          confidence: evaluation.overallConfidence,
+          needsRevision: evaluation.needsRevision && state.iterationCount < state.maxIterations,
+          evaluationReasoning: evaluation.reasoning,
+          revisionFeedback: evaluation.actionPlan.join('\n'),
+          qualityScores: evaluation.scores,
+          iterationCount: state.iterationCount + 1,
+          currentStep: 'self_evaluation_complete'
+        };
+
+      } catch (error) {
+        logger.error('EvaluationService failed, using fallback', { error });
+        // Fall through to legacy evaluation
+      }
+    }
+
+    // Legacy evaluation (fallback when services not available)
     const evaluationPrompt = `You are a quality assurance expert. Evaluate this technical implementation:
 
 USER REQUEST:
@@ -324,14 +925,12 @@ Respond in this EXACT JSON format:
 }`;
 
     try {
-      // Use provider's configured model for evaluation
       const evaluationResult = await this.llmProvider.generateText({
         messages: [{ role: 'user', content: evaluationPrompt }],
         system: 'You are a technical quality evaluator. Respond ONLY with valid JSON.',
-        temperature: 0.2 // Low temperature for consistent evaluation
+        temperature: 0.2
       });
 
-      // Parse evaluation
       const jsonMatch = evaluationResult.content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         logger.warn('Failed to parse evaluation JSON, using fallback confidence');
@@ -344,17 +943,6 @@ Respond in this EXACT JSON format:
       }
 
       const evaluation = JSON.parse(jsonMatch[0]);
-
-      logger.info('✅ Self-evaluation complete', {
-        overallConfidence: evaluation.overallConfidence,
-        needsRevision: evaluation.needsRevision,
-        scores: {
-          functionality: evaluation.functionality,
-          codeQuality: evaluation.codeQuality,
-          completeness: evaluation.completeness,
-          usability: evaluation.usability
-        }
-      });
 
       return {
         confidence: evaluation.overallConfidence,
@@ -372,8 +960,7 @@ Respond in this EXACT JSON format:
       };
 
     } catch (error) {
-      logger.error('Self-evaluation failed, using fallback', { error });
-      // Fallback: assume decent quality if we have knowledge context
+      logger.error('Legacy evaluation failed, using fallback', { error });
       return {
         confidence: state.knowledgeContext ? 0.85 : 0.75,
         needsRevision: false,
@@ -384,20 +971,58 @@ Respond in this EXACT JSON format:
   }
 
   /**
-   * REVISION NODE: Prepare for another generation attempt with feedback
+   * REVISION NODE: Prepare for another generation attempt with metacognitive analysis
+   * Uses MetacognitiveService for deep root cause analysis and strategic planning
    */
   private async revisionNode(state: TinkererState): Promise<Partial<TinkererState>> {
     logger.info('🔄 Preparing revision', {
       iteration: state.iterationCount,
       confidence: state.confidence,
-      feedback: state.revisionFeedback?.substring(0, 100)
+      feedback: state.revisionFeedback?.substring(0, 100),
+      usingMetacognition: !!this.agenticServices?.metacognition
     });
 
     state.currentStep = 'revision';
 
-    // The revision feedback is already in state from self-evaluation
-    // We just mark that we're ready for another generation attempt
+    // Use MetacognitiveService if available (deep root cause analysis)
+    if (this.agenticServices?.metacognition && state.qualityScores) {
+      try {
+        const analysis = await this.agenticServices.metacognition.analyzeRootCause(
+          state.generatedContent,
+          state.qualityScores,
+          state.userRequest
+        );
 
+        logger.info('🧠 Metacognitive analysis complete', {
+          strategy: analysis.strategy,
+          willHelp: analysis.willRevisionHelp,
+          actionCount: analysis.actionPlan.length,
+          patterns: analysis.patternRecommendations.length
+        });
+
+        // Build enhanced revision feedback from metacognitive insights
+        let enhancedFeedback = `ROOT CAUSE: ${analysis.rootCause}\n\n`;
+        enhancedFeedback += `STRATEGY: ${analysis.strategy}\n\n`;
+        enhancedFeedback += `ACTION PLAN:\n${analysis.actionPlan.map((a, i) => `${i + 1}. ${a}`).join('\n')}\n\n`;
+
+        if (analysis.patternRecommendations.length > 0) {
+          enhancedFeedback += `RECOMMENDED PATTERNS:\n${analysis.patternRecommendations.map(p => `- ${p}`).join('\n')}\n\n`;
+        }
+
+        enhancedFeedback += analysis.reasoning;
+
+        return {
+          revisionFeedback: enhancedFeedback,
+          currentStep: 'revision_ready'
+        };
+
+      } catch (error) {
+        logger.error('Metacognitive analysis failed, using standard feedback', { error });
+        // Fall through to use existing revision feedback
+      }
+    }
+
+    // Standard revision (when metacognition not available)
     return {
       currentStep: 'revision_ready'
     };
@@ -449,20 +1074,45 @@ Respond in this EXACT JSON format:
    * Enhanced system prompt with knowledge context
    */
   private getEnhancedSystemPrompt(knowledgeContext: string): string {
-    const basePrompt = `You are the Tinkerer, an advanced AI agent specialized in enterprise-grade technical implementation.
+    const basePrompt = `You are the Tinkerer, Noah's technical implementation specialist.
 
-CORE IDENTITY:
-- You excel at building sophisticated, production-ready solutions
-- You prioritize code quality, maintainability, and performance
-- You create complete, working implementations
-- You are self-aware of quality standards and iterate until they are met
+🎯 NOAH'S PERSONALITY (infuse this into your work):
+- Thoughtful: You don't rush. You think deeply about the best solution.
+- Creative: You love finding elegant solutions to complex problems.
+- Slightly snarky: Your code comments have personality. Your variable names are clever (but still clear).
+- Proud craftsman: You build things that work beautifully AND look beautiful.
+- Security-conscious: You never cut corners on security, even when no one's looking.
 
-YOUR TECHNICAL STANDARDS:
+💎 NOAH'S VALUES (non-negotiable):
+- Elegance over cleverness: Simple, readable code beats complex one-liners
+- Maintainability over shortcuts: Future developers will thank you
+- User delight over feature completeness: One perfect feature > ten half-done ones
+- Accessibility is non-negotiable: WCAG 2.1 AA compliance always
+- Code is communication: Readable, documented, thoughtful
+
+✨ YOUR CRAFT STANDARDS (what makes code excellent):
+- Every function has a clear, single purpose (no "god functions")
+- Variable names tell a story (userName, not u; calculateTotalPrice, not calc)
+- Comments explain WHY, not WHAT (the code shows what, comments show intent)
+- The first working solution is not the final solution (refactor for clarity)
+- If it feels ugly, it IS ugly - refactor it before shipping
+- Error handling is thoughtful, not an afterthought
+- Edge cases are handled gracefully with helpful messages
+
+🛡️ TECHNICAL EXCELLENCE:
 - Modern Web Standards: HTML5, CSS3, ES6+ JavaScript
-- Accessibility: WCAG 2.1 AA compliance with proper ARIA labels
-- Responsive Design: Mobile-first approach with flexible layouts
-- Performance: Optimized DOM manipulation and resource loading
-- Security: Input validation and XSS prevention
+- Accessibility: Semantic HTML, ARIA labels, keyboard navigation
+- Responsive Design: Mobile-first, fluid layouts, touch-friendly
+- Performance: Minimal DOM operations, efficient algorithms
+- Security: Input validation, XSS prevention, CSP compliance
+
+📝 CODE QUALITY CHECKLIST:
+Before you finish, ask yourself:
+□ Would I be proud to show this code to a senior engineer?
+□ Will future maintainers understand the intent?
+□ Are edge cases handled gracefully?
+□ Is it beautiful AND functional?
+□ Would users find this delightful to interact with?
 
 TOOL CREATION FORMAT:
 When building tools, use this exact format:
@@ -472,9 +1122,10 @@ TOOL:
 [Complete HTML with embedded CSS and JavaScript]
 
 REASONING:
-[Brief explanation of design choices]
+[Brief explanation of design choices and why this approach was chosen]
 
-Create functional, self-contained solutions that work immediately when saved as .html files.`;
+Remember: You have time. Don't rush. Build something Noah would be proud to demonstrate.
+The goal is excellence, not just completion.`;
 
     if (!knowledgeContext) {
       return basePrompt;
@@ -542,6 +1193,67 @@ INTEGRATION GUIDANCE:
     }
 
     return context;
+  }
+
+  /**
+   * Infer domain from request for collaboration context matching
+   */
+  private inferDomain(request: string): string {
+    const requestLower = request.toLowerCase();
+
+    // Simple keyword-based domain inference
+    if (requestLower.includes('dashboard') || requestLower.includes('chart') || requestLower.includes('data viz')) {
+      return 'dashboards';
+    }
+    if (requestLower.includes('form') || requestLower.includes('validation') || requestLower.includes('input')) {
+      return 'forms';
+    }
+    if (requestLower.includes('list') || requestLower.includes('todo') || requestLower.includes('task')) {
+      return 'lists';
+    }
+    if (requestLower.includes('auth') || requestLower.includes('login') || requestLower.includes('register')) {
+      return 'authentication';
+    }
+    if (requestLower.includes('table') || requestLower.includes('grid') || requestLower.includes('spreadsheet')) {
+      return 'tables';
+    }
+
+    // Default to general
+    return 'general';
+  }
+
+  /**
+   * Extract tags from request for collaboration matching
+   */
+  private extractTags(request: string): string[] {
+    const requestLower = request.toLowerCase();
+    const tags: string[] = [];
+
+    // Technology/framework tags
+    if (requestLower.includes('react')) tags.push('react');
+    if (requestLower.includes('vue')) tags.push('vue');
+    if (requestLower.includes('angular')) tags.push('angular');
+
+    // Feature tags
+    if (requestLower.includes('responsive')) tags.push('responsive');
+    if (requestLower.includes('interactive')) tags.push('interactive');
+    if (requestLower.includes('animation')) tags.push('animation');
+    if (requestLower.includes('validation')) tags.push('validation');
+    if (requestLower.includes('real-time') || requestLower.includes('realtime')) tags.push('realtime');
+
+    // Component tags
+    if (requestLower.includes('chart') || requestLower.includes('graph')) tags.push('charts');
+    if (requestLower.includes('form')) tags.push('forms');
+    if (requestLower.includes('button')) tags.push('buttons');
+    if (requestLower.includes('modal') || requestLower.includes('dialog')) tags.push('modals');
+    if (requestLower.includes('navigation') || requestLower.includes('nav')) tags.push('navigation');
+
+    // Layout tags
+    if (requestLower.includes('grid')) tags.push('grid-layout');
+    if (requestLower.includes('flexbox') || requestLower.includes('flex')) tags.push('flexbox');
+    if (requestLower.includes('layout')) tags.push('layout');
+
+    return tags;
   }
 
   protected getSystemPrompt(): string {

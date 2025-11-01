@@ -33,6 +33,89 @@ export class WandererAgent extends BaseAgent {
     });
   }
 
+  /**
+   * 🎯 AGENTIC ROUTING: Evaluate whether this agent should handle the request
+   *
+   * Enables truly agentic routing by allowing the agent to autonomously
+   * decide if it should handle a request based on research/analysis needs.
+   *
+   * @param requestContent - The user's request content
+   * @returns Promise<{ confidence: number, reasoning: string }>
+   */
+  async evaluateRequest(requestContent: string): Promise<{ confidence: number; reasoning: string }> {
+    this.logger.debug('Wanderer evaluating request for agentic routing', {
+      contentLength: requestContent.length
+    });
+
+    try {
+      const prompt = `You are the Wanderer agent, specialized in deep research, analysis, and information gathering.
+
+Your capabilities:
+- Conducting comprehensive research on complex topics
+- Breaking down complex subjects into key components
+- Analyzing best practices, trends, and approaches
+- Gathering context for implementation decisions
+- Providing synthesized, actionable insights
+
+Analyze this user request and determine how confident you are that YOU should handle it (0.0-1.0):
+
+User Request: "${requestContent}"
+
+Consider:
+1. Does this require research, analysis, or gathering information?
+2. Is this asking about best practices, trends, or approaches?
+3. Does this need comprehensive understanding before implementation?
+4. Is this within your research specialization scope?
+
+Return a JSON object with:
+{
+  "confidence": <number 0.0-1.0>,
+  "reasoning": "<brief explanation of your confidence level>"
+}
+
+Examples:
+- "Research best practices for React state management" → confidence: 0.95 (perfect research task)
+- "What are the latest trends in data visualization?" → confidence: 0.9 (research and analysis)
+- "Build a React dashboard" → confidence: 0.2 (building task, not research)
+- "Create a simple calculator" → confidence: 0.1 (code generation, not research)
+- "How do I cook pasta?" → confidence: 0.05 (outside your domain)`;
+
+      const response = await this.llmProvider.generateText({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        maxTokens: 200
+      });
+
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+
+        this.logger.info('Wanderer evaluation complete', {
+          confidence: result.confidence,
+          reasoning: result.reasoning?.substring(0, 100)
+        });
+
+        return {
+          confidence: Math.max(0, Math.min(1, result.confidence)),
+          reasoning: result.reasoning || 'No reasoning provided'
+        };
+      }
+
+      this.logger.warn('Failed to parse Wanderer evaluation response, using fallback');
+      return {
+        confidence: 0.5,
+        reasoning: 'Unable to evaluate - defaulting to moderate confidence'
+      };
+
+    } catch (error) {
+      this.logger.error('Wanderer evaluation failed', { error });
+      return {
+        confidence: 0.3,
+        reasoning: 'Evaluation error - low confidence fallback'
+      };
+    }
+  }
+
   async processRequest(request: AgentRequest): Promise<AgentResponse> {
     try {
       this.logger.info('Wanderer processing research request', {

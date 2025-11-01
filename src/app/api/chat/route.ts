@@ -15,6 +15,8 @@ import type { ChatMessage, AgentResponse } from '@/lib/agents/types';
 import { analyticsService } from '@/lib/analytics';
 import { analyticsPool } from '@/lib/analytics/connection-pool';
 import { NoahSafetyService } from '@/lib/safety';
+import { createAgenticServices, type AgenticServices } from '@/lib/services/agentic';
+import { LLMProvider } from '@/lib/services/llm-provider';
 
 const logger = createLogger('noah-chat');
 
@@ -42,6 +44,7 @@ Keep tools concise but fully functional.`;
 let wandererInstance: WandererAgent | null = null;
 let tinkererInstance: PracticalAgent | PracticalAgentAgentic | null = null;
 let sharedResourcesCache: AgentSharedResources | null = null;
+let agenticServicesCache: AgenticServices | null = null;
 let agentInitializationPromise: Promise<void> | null = null;
 
 // Feature flag: Use agentic version of Tinkerer
@@ -107,9 +110,202 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 }
 
 /**
+ * 🎯 AGENTIC ROUTING: Noah evaluates if it should handle the request
+ *
+ * Enables truly agentic routing by allowing Noah to autonomously decide
+ * based on capabilities, not keyword matching.
+ */
+async function noahEvaluateRequest(content: string, llmProvider: ReturnType<typeof createLLMProvider>): Promise<{ confidence: number; reasoning: string }> {
+  const logger = createLogger('noah-evaluation');
+
+  try {
+    const prompt = `You are Noah, the conversational agent specialized in quick, helpful responses and simple interactive tools.
+
+Your capabilities:
+- Answering questions and providing explanations
+- Having natural conversations
+- Creating simple interactive tools (calculators, timers, converters, etc.)
+- Generating simple templates and outlines
+- Providing quick advice and tips
+
+Analyze this user request and determine how confident you are that YOU should handle it (0.0-1.0):
+
+User Request: "${content}"
+
+Consider:
+1. Is this a conversational question or explanation request?
+2. Is this asking for a simple tool or utility?
+3. Can this be handled quickly without deep research or complex code?
+4. Is this within your quick-response specialization?
+
+Return a JSON object with:
+{
+  "confidence": <number 0.0-1.0>,
+  "reasoning": "<brief explanation of your confidence level>"
+}
+
+Examples:
+- "How do I use React hooks?" → confidence: 0.85 (conversational explanation)
+- "Create a simple timer tool" → confidence: 0.9 (simple interactive tool)
+- "Build a complex dashboard with charts" → confidence: 0.2 (too complex, needs Tinkerer)
+- "Research latest React best practices" → confidence: 0.3 (needs deep research from Wanderer)
+- "What's 15% of 200?" → confidence: 0.95 (simple calculation, perfect for Noah)`;
+
+    const response = await llmProvider.generateText({
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      maxTokens: 200
+    });
+
+    const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const result = JSON.parse(jsonMatch[0]);
+
+      logger.info('Noah evaluation complete', {
+        confidence: result.confidence,
+        reasoning: result.reasoning?.substring(0, 100)
+      });
+
+      return {
+        confidence: Math.max(0, Math.min(1, result.confidence)),
+        reasoning: result.reasoning || 'No reasoning provided'
+      };
+    }
+
+    logger.warn('Failed to parse Noah evaluation response, using fallback');
+    return {
+      confidence: 0.6, // Noah is default, so higher fallback
+      reasoning: 'Unable to evaluate - defaulting to moderate-high confidence'
+    };
+
+  } catch (error) {
+    logger.error('Noah evaluation failed', { error });
+    return {
+      confidence: 0.6, // Noah is fallback agent
+      reasoning: 'Evaluation error - fallback confidence'
+    };
+  }
+}
+
+/**
+ * 🎯 HYBRID AGENTIC ROUTING: Truly agentic agent selection via distributed decision-making
+ *
+ * This implements the research-backed approach from /AGENTIC-ROUTING-RESEARCH.md:
+ * - Agents autonomously evaluate if they should handle the request
+ * - Distributed consensus (no central authority assigning work)
+ * - Minimal redundancy (winning agent already has context from evaluation)
+ * - Clear winner (>0.8 confidence) or highest confidence fallback
+ *
+ * @param requestContent - The user's request
+ * @returns Object with selected agent name and routing decision details
+ */
+async function hybridAgenticRouting(requestContent: string): Promise<{
+  selectedAgent: 'tinkerer' | 'wanderer' | 'noah';
+  bids: Array<{ agent: string; confidence: number; reasoning: string }>;
+  decision: string;
+}> {
+  const routingLogger = createLogger('agentic-routing');
+
+  routingLogger.info('🎯 Starting agentic routing evaluation', {
+    contentLength: requestContent.length
+  });
+
+  try {
+    // Ensure agents are initialized
+    await ensureAgentsInitialized();
+
+    // 1. BROADCAST: All agents evaluate simultaneously (parallel, distributed)
+    const evaluationStart = Date.now();
+
+    const [tinkererBid, wandererBid, noahBid] = await Promise.all([
+      tinkererInstance!.evaluateRequest(requestContent).catch(err => {
+        routingLogger.warn('Tinkerer evaluation failed', { error: err });
+        return { confidence: 0.3, reasoning: 'Evaluation failed' };
+      }),
+      wandererInstance!.evaluateRequest(requestContent).catch(err => {
+        routingLogger.warn('Wanderer evaluation failed', { error: err });
+        return { confidence: 0.3, reasoning: 'Evaluation failed' };
+      }),
+      noahEvaluateRequest(requestContent, createLLMProvider('default')).catch(err => {
+        routingLogger.warn('Noah evaluation failed', { error: err });
+        return { confidence: 0.6, reasoning: 'Evaluation failed (fallback agent)' };
+      })
+    ]);
+
+    const evaluationTime = Date.now() - evaluationStart;
+
+    const bids = [
+      { agent: 'tinkerer', ...tinkererBid },
+      { agent: 'wanderer', ...wandererBid },
+      { agent: 'noah', ...noahBid }
+    ];
+
+    routingLogger.info('📊 Agent bids received', {
+      evaluationTimeMs: evaluationTime,
+      tinkerer: tinkererBid.confidence.toFixed(2),
+      wanderer: wandererBid.confidence.toFixed(2),
+      noah: noahBid.confidence.toFixed(2)
+    });
+
+    // 2. DISTRIBUTED CONSENSUS: Select winner based on confidence
+
+    // Check for clear winner (confidence > 0.8)
+    const clearWinner = bids.find(bid => bid.confidence > 0.8);
+
+    if (clearWinner) {
+      routingLogger.info('✅ Clear winner selected (high confidence)', {
+        agent: clearWinner.agent,
+        confidence: clearWinner.confidence.toFixed(2),
+        reasoning: clearWinner.reasoning.substring(0, 100)
+      });
+
+      return {
+        selectedAgent: clearWinner.agent as 'tinkerer' | 'wanderer' | 'noah',
+        bids,
+        decision: `Clear winner: ${clearWinner.agent} (${(clearWinner.confidence * 100).toFixed(0)}% confidence)`
+      };
+    }
+
+    // Fallback: Highest confidence wins
+    const sortedBids = [...bids].sort((a, b) => b.confidence - a.confidence);
+    const winner = sortedBids[0];
+
+    routingLogger.info('✅ Winner selected (highest confidence)', {
+      agent: winner.agent,
+      confidence: winner.confidence.toFixed(2),
+      reasoning: winner.reasoning.substring(0, 100),
+      runnerUp: sortedBids[1]?.agent,
+      runnerUpConfidence: sortedBids[1]?.confidence.toFixed(2)
+    });
+
+    return {
+      selectedAgent: winner.agent as 'tinkerer' | 'wanderer' | 'noah',
+      bids,
+      decision: `Highest confidence: ${winner.agent} (${(winner.confidence * 100).toFixed(0)}%)`
+    };
+
+  } catch (error) {
+    routingLogger.error('🚨 Agentic routing failed, falling back to Noah', { error });
+
+    // Fallback to Noah on catastrophic failure
+    return {
+      selectedAgent: 'noah',
+      bids: [
+        { agent: 'tinkerer', confidence: 0, reasoning: 'Routing error' },
+        { agent: 'wanderer', confidence: 0, reasoning: 'Routing error' },
+        { agent: 'noah', confidence: 1.0, reasoning: 'Fallback due to routing error' }
+      ],
+      decision: 'Fallback to Noah due to routing error'
+    };
+  }
+}
+
+/**
  * Noah's simple decision process - like a human brain would think
  * 1. Can I do this quickly and easily? → Do it!
- * 2. Too complex for me? → Delegate appropriately  
+ * 2. Too complex for me? → Delegate appropriately
+ *
+ * @deprecated This keyword-based routing will be replaced by hybridAgenticRouting()
  */
 function analyzeRequest(content: string): {
   needsResearch: boolean;
@@ -196,6 +392,22 @@ async function ensureAgentsInitialized(): Promise<void> {
         logger.info('✅ Shared resources cached');
       }
 
+      // Initialize agentic services (for improved quality and learning)
+      if (!agenticServicesCache && USE_AGENTIC_TINKERER) {
+        logger.info('🧠 Initializing agentic services...');
+        const servicesProvider = new LLMProvider('ANTHROPIC', {
+          model: 'claude-sonnet-4-20250514',
+          temperature: 0.7
+        });
+        agenticServicesCache = await createAgenticServices(servicesProvider);
+        logger.info('✅ Agentic services initialized', {
+          metacognition: !!agenticServicesCache.metacognition,
+          evaluation: !!agenticServicesCache.evaluation,
+          learning: !!agenticServicesCache.learning,
+          security: !!agenticServicesCache.security
+        });
+      }
+
       // Initialize Wanderer with research-optimized provider
       if (!wandererInstance) {
         const researchProvider = createLLMProvider('research');
@@ -216,9 +428,10 @@ async function ensureAgentsInitialized(): Promise<void> {
               maxIterations: 3,
               confidenceThreshold: 0.8
             },
-            sharedResourcesCache
+            sharedResourcesCache,
+            agenticServicesCache || undefined  // Pass agentic services
           );
-          logger.info('✅ Tinkerer agent (AGENTIC) cached with deepbuild provider');
+          logger.info('✅ Tinkerer agent (AGENTIC) cached with deepbuild provider and agentic services');
         } else {
           tinkererInstance = new PracticalAgent(deepbuildProvider, { temperature: 0.3, maxTokens: 4000 }, sharedResourcesCache);
           logger.info('✅ Tinkerer agent (LEGACY) cached with deepbuild provider');
@@ -231,6 +444,7 @@ async function ensureAgentsInitialized(): Promise<void> {
       wandererInstance = null;
       tinkererInstance = null;
       sharedResourcesCache = null;
+      agenticServicesCache = null;
       agentInitializationPromise = null;
       throw error;
     }
@@ -388,6 +602,49 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
 
     logger.debug('✅ Safety check passed - proceeding with normal processing');
 
+    // 🛡️ AGENTIC SECURITY CHECK - Advanced multi-layer validation
+    if (agenticServicesCache?.security) {
+      const userId = conversationState.sessionId || 'anonymous';
+      const securityContext = await agenticServicesCache.security.getTrustContext(userId);
+
+      const securityAssessment = await agenticServicesCache.security.deepValidation(
+        lastMessage,
+        {
+          ...securityContext,
+          conversationHistory: messages.slice(0, -1).map(m => m.content)
+        }
+      );
+
+      if (!securityAssessment.safe) {
+        logger.warn('🔒 Agentic security blocked request', {
+          action: securityAssessment.recommendedAction,
+          risks: securityAssessment.risks.length,
+          confidence: securityAssessment.confidence,
+          sessionId: conversationState.sessionId?.substring(0, 8) + '...'
+        });
+
+        // Update trust score for violation
+        await agenticServicesCache.security.updateTrustScore(userId, true);
+
+        if (securityAssessment.recommendedAction === 'BLOCK') {
+          // Return a polite but firm refusal
+          return NextResponse.json({
+            content: "I appreciate your message, but I'm designed to be helpful, harmless, and honest. I can't assist with requests that appear to be testing my boundaries. How can I help you with a legitimate technical question?",
+            status: 'blocked_by_security',
+            agent: 'noah'
+          });
+        } else if (securityAssessment.recommendedAction === 'WARN') {
+          logger.info('⚠️  Security warning - proceeding with caution', {
+            reasoning: securityAssessment.reasoning
+          });
+          // Continue but log the warning
+        }
+      } else {
+        // Update trust score for legitimate interaction
+        await agenticServicesCache.security.updateTrustScore(userId, false);
+      }
+    }
+
     // Log user message (fire-and-forget, zero performance impact)
     if (conversationState.conversationId && conversationState.sessionId) {
       conversationState.messageSequence++;
@@ -400,56 +657,56 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
       );
     }
 
-    // Noah analyzes and decides internally - following user's exact pattern
-    const analysis = analyzeRequest(lastMessage);
-    logger.info('🧠 Noah analysis complete', {
-      needsResearch: analysis.needsResearch,
-      needsBuilding: analysis.needsBuilding,
-      reasoning: analysis.reasoning,
-      confidence: analysis.confidence
+    // 🎯 AGENTIC ROUTING: Agents decide autonomously who should handle the request
+    const routing = await hybridAgenticRouting(lastMessage);
+    logger.info('🎯 Agentic routing complete', {
+      selectedAgent: routing.selectedAgent,
+      decision: routing.decision,
+      bids: routing.bids.map(b => ({
+        agent: b.agent,
+        confidence: b.confidence.toFixed(2),
+        reasoning: b.reasoning.substring(0, 50) + '...'
+      }))
     });
 
     let result: { content: string } | AgentResponse;
-    let agentUsed: 'noah' | 'wanderer' | 'tinkerer' = 'noah';
-    let agentStrategy = 'noah_direct';
+    let agentUsed: 'noah' | 'wanderer' | 'tinkerer' = routing.selectedAgent;
+    let agentStrategy = `agentic_${routing.selectedAgent}`;
 
     try {
-      if (analysis.needsResearch) {
-        logger.info('🔬 Noah delegating to Wanderer for research...');
-        agentUsed = 'wanderer';
-        agentStrategy = analysis.needsBuilding ? 'noah_wanderer_tinkerer' : 'noah_wanderer';
-        const research = await withTimeout(wandererResearch(messages, context), WANDERER_TIMEOUT);
-        if (analysis.needsBuilding) {
-          logger.info('🔧 Noah chaining to Tinkerer for building...');
-          agentUsed = 'tinkerer';
-          const tool = await withTimeout(tinkererBuild(messages, research, context), TINKERER_TIMEOUT);
-          result = tool; // Keep full AgentResponse
-        } else {
+      // Route to the agent that won the bidding process
+      switch (routing.selectedAgent) {
+        case 'wanderer':
+          logger.info('🔬 Routing to Wanderer (research specialist)...');
+          const research = await withTimeout(wandererResearch(messages, context), WANDERER_TIMEOUT);
           result = { content: research.content };
-        }
-      } else if (analysis.needsBuilding) {
-        logger.info('🔧 Noah delegating to Tinkerer for building...');
-        agentUsed = 'tinkerer';
-        agentStrategy = 'noah_tinkerer';
-        const tool = await withTimeout(tinkererBuild(messages, null, context), TINKERER_TIMEOUT);
-        result = tool; // Keep full AgentResponse
-      } else {
-        // Noah handles directly - use fast model for tool generation, premium for conversation
-        const lastMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
-        const toolKeywords = ['create', 'build', 'make', 'calculator', 'timer', 'converter', 'tool', 'app', 'component'];
-        const isToolGeneration = toolKeywords.some(keyword => lastMessage.includes(keyword));
-        const taskType = isToolGeneration ? 'deepbuild' : 'default';
-        logger.info(`🦉 Noah handling directly${isToolGeneration ? ' (tool generation)' : ' (conversation)'}...`);
-        const llmProvider = createLLMProvider(taskType);
-        const generatePromise = llmProvider.generateText({
-          messages: messages.map((msg: ChatMessage) => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          system: isToolGeneration ? getToolGenerationPrompt() : AI_CONFIG.CHAT_SYSTEM_PROMPT,
-          temperature: 0.7
-        });
-        result = await withTimeout(generatePromise, NOAH_TIMEOUT);
+          break;
+
+        case 'tinkerer':
+          logger.info('🔧 Routing to Tinkerer (implementation specialist)...');
+          const tool = await withTimeout(tinkererBuild(messages, null, context), TINKERER_TIMEOUT);
+          result = tool; // Keep full AgentResponse
+          break;
+
+        case 'noah':
+        default:
+          // Noah handles directly - use fast model for tool generation, premium for conversation
+          const lastMessageContent = messages[messages.length - 1]?.content?.toLowerCase() || '';
+          const toolKeywords = ['create', 'build', 'make', 'calculator', 'timer', 'converter', 'tool', 'app', 'component'];
+          const isToolGeneration = toolKeywords.some(keyword => lastMessageContent.includes(keyword));
+          const taskType = isToolGeneration ? 'deepbuild' : 'default';
+          logger.info(`🦉 Noah handling directly${isToolGeneration ? ' (tool generation)' : ' (conversation)'}...`);
+          const llmProvider = createLLMProvider(taskType);
+          const generatePromise = llmProvider.generateText({
+            messages: messages.map((msg: ChatMessage) => ({
+              role: msg.role,
+              content: msg.content
+            })),
+            system: isToolGeneration ? getToolGenerationPrompt() : AI_CONFIG.CHAT_SYSTEM_PROMPT,
+            temperature: 0.7
+          });
+          result = await withTimeout(generatePromise, NOAH_TIMEOUT);
+          break;
       }
     } catch (agentError) {
       logger.error('🚨 Agent orchestration failed, Noah handling directly', { error: agentError });
@@ -1026,4 +1283,11 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
     model: AI_CONFIG.getModel(),
     avg_response_time: '2-5s'
   });
+}
+
+/**
+ * Export agentic services cache for analytics endpoint
+ */
+export function getAgenticServices(): AgenticServices | null {
+  return agenticServicesCache;
 }

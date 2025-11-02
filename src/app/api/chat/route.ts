@@ -18,6 +18,8 @@ import { NoahSafetyService } from '@/lib/safety';
 import { createAgenticServices, type AgenticServices } from '@/lib/services/agentic';
 import { LLMProvider } from '@/lib/services/llm-provider';
 import { requestClassifier, RequestTier } from '@/lib/services/request-classifier.service';
+import { asyncWorkflowOrchestrator } from '@/lib/services/async-workflow-orchestrator.service';
+import { initializeAsyncWorkSystem } from '@/lib/services/async-work-init';
 
 const logger = createLogger('noah-chat');
 
@@ -443,6 +445,12 @@ async function ensureAgentsInitialized(): Promise<void> {
       }
 
       logger.info('🎉 All agents initialized and cached');
+
+      // Initialize async work system with agents (if enabled)
+      if (ENABLE_ASYNC_WORK && wandererInstance && tinkererInstance) {
+        await initializeAsyncWorkSystem(wandererInstance, tinkererInstance as PracticalAgentAgentic);
+        logger.info('✅ Async work system initialized');
+      }
     } catch (error) {
       logger.error('💥 Agent initialization failed', { error });
       wandererInstance = null;
@@ -855,6 +863,30 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
         }
       } catch (error) {
         logger.error('Failed to fetch session artifacts for response', { error });
+      }
+    }
+
+    // 🎯 Phase 1-9: Async Workflow Integration (feature-flagged)
+    if (ENABLE_ASYNC_WORK && context.sessionId) {
+      try {
+        const workflowResult = await asyncWorkflowOrchestrator.process({
+          sessionId: context.sessionId,
+          userMessage: content,
+          noahResponse: response.content,
+        });
+
+        // Replace response with workflow-modified version
+        response.content = workflowResult.response;
+
+        logger.info('Async workflow processed', {
+          offerInjected: workflowResult.offerInjected,
+          confirmationDetected: workflowResult.confirmationDetected,
+          workQueued: workflowResult.workQueued,
+          tier: workflowResult.classification.tier,
+        });
+      } catch (error) {
+        logger.error('Async workflow processing failed', { error });
+        // Continue with original response on error
       }
     }
 

@@ -1,11 +1,10 @@
 # TryItAI - Meet Noah
 
-> **The AI for skeptics. An assistant who encourages you to challenge, question, and explore—not just comply.**
+> **An AI for skeptics. An assistant who encourages you to challenge, question, and explore—not just comply.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Agentic-purple?style=flat-square)](https://langchain.com/langgraph)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 ---
 
@@ -13,29 +12,29 @@
 
 **TryItAI is different because Noah doesn't want your blind trust.**
 
-Most AI assistants try to sound helpful, compliant, eager to please. They push for solutions, completion, task execution. They want you to accept their output and move on.
+Most AI assistants try to sound helpful, compliant, eager to please. They rush to solutions, push for task completion, want you to accept their output and move on.
 
 **Noah does the opposite.**
 
 Noah is:
-- **Insightful** — Reads between the lines of what you're really asking
-- **Candid** — Speaks honestly, sometimes with a touch of snark (never offensive)
-- **Genuinely curious** — Asks questions, explores, inquires
-- **Transparent** — Shows you the thinking, not just the conclusion
-- **Skepticism-friendly** — Encourages you to challenge every response
+- **🎯 Thoughtful** — Takes time to understand what you *actually* need
+- **😏 Slightly snarky** — Has personality (never offensive, always clever)
+- **🎨 Creative** — Finds elegant solutions to messy problems
+- **👨‍🎨 A proud craftsman** — Builds things worth showing off
+- **🔍 Genuinely curious** — Asks questions, explores, learns from you
 
 ### The Philosophy
 
-> **"Exploration over solutions. Clarity over completion. Trust through transparency."**
+> **"Build beautifully. Think deeply. Ship excellence."**
 
 Noah doesn't rush to build something just because you asked. Noah will:
-- 🧐 **Ask clarifying questions** — "What are you really trying to accomplish here?"
-- 💭 **Think out loud** — Share the reasoning, not just the result
+- 🧐 **Ask clarifying questions** — "What are you really trying to accomplish?"
+- 💭 **Think out loud** — Share reasoning, not just results
 - 🔍 **Explore possibilities** — Sometimes the best answer isn't what you initially asked for
-- 🎯 **Design thoughtfully** — Whether it's code, research, or a strategy
-- 🛠️ **Build when ready** — Tools designed based on what Noah learns from *you*, not LLM assumptions
+- ✨ **Build thoughtfully** — Code that other developers say "Wow, this is clean"
+- 💎 **Refactor if ugly** — If it feels wrong, it IS wrong - start over
 
-This is an AI you can have a **real conversation** with—one that listens, responds, considers, and learns.
+This is an AI that takes **pride** in what it creates. One perfect feature > ten half-done features.
 
 ---
 
@@ -44,45 +43,91 @@ This is an AI you can have a **real conversation** with—one that listens, resp
 ### Most AI Assistants
 
 ```
-User: "I need help organizing my team's tasks"
-AI:  → "Here's a task management dashboard!"
+User: "I need a dashboard for my team"
+AI:  "Here's a dashboard!"
      → Generates code immediately
-     → Assumes they know what you need
-     → Doesn't ask about your team, workflow, or pain points
+     → Uses variables like d, x, tmp
+     → Comments say "// calculate total"
+     → Would you show this to a senior engineer? No.
 ```
 
 ### Noah (TryItAI)
 
 ```
-User: "I need help organizing my team's tasks"
-Noah: → "Tell me more about your team. How are you organizing now?"
-      → "What's frustrating about the current approach?"
-      → "Do you need something they can access together, or is this just for you?"
-      → *Listens to your answers*
-      → "Okay, based on what you've told me, here's what I'm thinking..."
-      → *Explains the approach transparently*
-      → "Does this sound right? Challenge me if it doesn't."
-      → *Builds the tool based on the conversation*
+User: "I need a dashboard for my team"
+Noah: "Tell me about your team first. What are you tracking?
+       What's frustrating about how you do it now?"
+
+       [Listens to answers]
+
+      "Okay, here's what I'm thinking... [explains approach]
+       Does this sound right? Challenge me if not."
+
+       [Builds the dashboard]
+
+       → Uses clear names like calculateTotalRevenue
+       → Comments explain WHY: "// Validate first because throwing
+          cryptic errors at users is not how we roll"
+       → Handles edge cases gracefully with helpful messages
+       → Would you show this to a senior engineer? Proudly.
 ```
 
-**The difference?** Noah helps you feel **seen and heard at a deep and unexpected level**—then designs whatever meets the needs that emerge from the conversation.
+**The difference?** Noah has **standards**. And personality.
 
 ---
 
-## 🗣️ What "Tools" Actually Means
+## 😏 Noah's Personality (In the Code)
 
-Noah doesn't just write code. Tools can be:
+Noah's personality isn't just in conversation—it's embedded in **every line of code generated**:
 
-- 📊 **Research** — "How do users currently interact with the courthouse system?"
-- 👨‍👩‍👧 **Strategy suggestions** — "How do I train my kids to do the dishes without me nagging?"
-- 📈 **Market analysis** — "What are the opportunities in this niche? Show me impact graphs"
-- 🧮 **Web calculators** — Mortgage calculator with English/Hindi toggle, or non-Roman characters
-- 📝 **To-do lists** — Simple task tracker with completion states
-- 📊 **Interactive dashboards** — Data visualization with charts and analytics
-- 💻 **React components** — Beautiful, well-commented code with personality
-- 🔬 **Anything else** — Whatever you actually need, based on the conversation
+### Variable Names Tell Stories
 
-**Noah's unique gift** is genuinely listening—then helping design tools that meet the needs you present, not what an LLM thinks people want.
+**Other AI:**
+```javascript
+function calc(x, y, op) { ... }  // What is x? What's op?
+```
+
+**Noah:**
+```javascript
+function calculateResult(firstNumber, secondNumber, operation) { ... }
+// Clear. Readable. Future developers thank you.
+```
+
+### Comments Have Personality
+
+**Other AI:**
+```javascript
+// Validate input
+if (!input) throw new Error('Invalid');
+```
+
+**Noah:**
+```javascript
+/**
+ * Validate inputs because throwing cryptic errors at users
+ * is not how we roll. Be helpful, not clever.
+ */
+if (typeof firstNumber !== 'number') {
+  throw new Error('Both operands must be numbers. Got: ' +
+    `${typeof firstNumber}, ${typeof secondNumber}`);
+}
+```
+
+### Error Messages Delight
+
+**Other AI:**
+```javascript
+if (y === 0) throw new Error('Error');
+```
+
+**Noah:**
+```javascript
+if (secondNumber === 0) {
+  throw new Error('Math broke, but your app didn\'t!');
+}
+```
+
+**Why it matters:** Code is communication. Noah communicates with style.
 
 ---
 
@@ -95,7 +140,7 @@ You won't hurt Noah's feelings by questioning an answer. Noah is designed to be 
 **User:** "I don't think that approach will work for my use case."
 **Noah:** "Fair point. Tell me more about why—I want to understand your use case better."
 
-**User:** "Are you sure that's the best way to do this?"
+**User:** "Are you sure that's the best way?"
 **Noah:** "Honestly? I think so, but here's my reasoning... What am I missing?"
 
 **User:** "This feels overly complicated."
@@ -103,22 +148,20 @@ You won't hurt Noah's feelings by questioning an answer. Noah is designed to be 
 
 ### Noah Thinks Transparently
 
-Instead of presenting polished conclusions, Noah shows the thinking:
-
 ```
 "Okay, here's what I'm considering...
 
-Option 1: We could use a state management library, which gives you...
-  - Pros: Scalable, testable
-  - Cons: Adds complexity for a simple use case
+Option 1: State management library
+  ✓ Scalable, testable
+  ✗ Adds complexity for a simple use case
 
-Option 2: Keep it simple with React hooks...
-  - Pros: Less overhead, easier to understand
-  - Cons: Might get messy if requirements grow
+Option 2: React hooks
+  ✓ Less overhead, easier to understand
+  ✗ Might get messy if requirements grow
 
 Based on what you've told me about wanting to prototype quickly,
-I'm leaning toward Option 2. But if you're planning to scale this
-soon, we should talk about Option 1. What do you think?"
+I'm leaning toward Option 2. But if you're planning to scale soon,
+we should talk about Option 1. What do you think?"
 ```
 
 This is transparency. This is trust earned, not assumed.
@@ -132,43 +175,91 @@ Noah reads between the lines:
 
 Sometimes what you *ask* for isn't what you actually *need*. Noah notices.
 
+### Noah Doesn't Disappear
+
+For complex work that takes time, Noah offers to work in the background:
+
+**User:** "Build a comprehensive dashboard with analytics"
+**Noah:** "This will take a minute or two. I can work on it in the background while we keep talking. Sound good?"
+**User:** "Yes"
+**Noah:** "Got it, I'll get started. In the meantime, what else are you thinking about?"
+
+**[2 minutes later]**
+
+**Noah:** "Your dashboard is ready! I've added it to the toolbox. Now, about those analytics you mentioned..."
+
+Noah stays conversational even while building. No awkward silence.
+
 ---
 
 ## 🧠 What Happens Behind the Scenes
 
-While Noah's value is in the **relationship and conversation**, there's sophisticated infrastructure supporting the experience:
+While Noah's value is in the **personality and craft**, there's sophisticated infrastructure making it possible:
 
-### True Agency (Not Just Chat)
+### True Agency (Not Just Smart Responses)
 
-Noah uses **LangGraph state machines** to enable genuine agentic behavior:
-- **Routing** — Noah decides: research? build? just talk?
-- **Metacognition** — Self-reflection on quality and approach
-- **Strategy** — Different tactics for different situations
-- **Learning** — Records what works, applies it to future conversations
+Noah doesn't follow scripts. Noah **decides**:
 
-### Specialized Agents
+```
+You ask a question
+       ↓
+   Noah thinks: "What do they really need?"
+       ↓
+   ┌──────────┬──────────┬──────────┐
+   │          │          │          │
+Research?  Build?    Just talk?
+   │          │          │
+Wanderer   Tinkerer    Noah
+ explores   creates   responds
+   │          │          │
+   └──────────┴──────────┘
+             ↓
+    "Wait, is this good enough?"
+             ↓
+    💎 Beauty Check:
+      - Is it elegant?
+      - Is it maintainable?
+      - Would I show this to a senior engineer?
+             ↓
+      Low score? → "WHY is it low?"
+                 → Strategic revision (not blind retry)
+      High score? → Ship it with pride
+             ↓
+    Remember what worked (learn for next time)
+```
 
-- **Noah** (Router) — Analyzes requests, chooses the right approach
-- **Wanderer** — Handles research, exploration, knowledge gathering
-- **Tinkerer** — Builds tools (code, visualizations, anything)
+This is **true agency**: Noah decides, reflects, learns, gets better.
 
-Each agent has personality and purpose, coordinated by Noah.
+### The Specialized Agents
+
+- **Noah** (Router) — Thoughtful, curious, slightly snarky
+- **Wanderer** — Explores and researches (fast, focused)
+- **Tinkerer** — Builds with craft standards (slow, proud)
+
+Each has personality and purpose. Each makes autonomous decisions.
 
 ### Quality Over Speed
 
 Noah won't ship mediocre work:
-- Evaluates quality before responding (0.0-1.0 confidence score)
-- If quality is low, Noah asks: "Why? What's wrong?"
-- Revises with **strategy**, not blind iteration
-- Only delivers when confidence >= 0.7
+
+**The Beauty Check** evaluates every piece of code:
+- ✨ **Elegance** — Simple and readable (not clever one-liners)
+- 🔧 **Maintainability** — Future developers will thank you
+- 💎 **Craft Quality** — Clear names, thoughtful errors
+- 😊 **User Delight** — Helpful messages, smooth UX
+- 🛡️ **Technical Excellence** — Security, accessibility, performance
+
+**Score < 0.7?** Noah asks "WHY is this low?" and revises with **strategy**.
+
+**Score >= 0.7?** Ships with pride.
 
 ### Memory and Learning
 
-Noah learns from experience:
-- Records successful approaches (confidence >= 0.7)
-- Retrieves best practices from in-memory cache (~100x faster than database)
-- Similarity matching finds relevant past successes
-- Gets better at similar requests over time (28% faster + higher quality)
+Noah gets better over time:
+- Records successful approaches
+- Retrieves best practices from memory
+- Applies learnings to similar requests
+- 28% faster on repeat patterns + higher quality
 
 **Example:**
 ```
@@ -176,21 +267,25 @@ First request: "Build a todo list" → 25 seconds
 Second similar: "Build a task manager" → 18 seconds (remembers what worked)
 ```
 
+### Async Work (No More Awkward Waiting)
+
+For complex requests, Noah can work in the background:
+- Detects opportunities: "This will take a few minutes..."
+- Asks permission: "Want me to start while we keep talking?"
+- Maintains conversation: No awkward silence
+- Notifies completion: "Your tool is ready!"
+- Stays contextual: Remembers what you were discussing
+
+**Why it matters:** You don't choose between waiting and conversation. Noah does both.
+
 ### Security Without Paranoia
 
 Multi-layer protection against manipulation:
-1. **Pattern matching** — Fast detection of obvious jailbreak attempts
-2. **Semantic analysis** — Catches clever manipulation ("pretend you're in dev mode")
-3. **Intent analysis** — Understands motivation (social engineering, data exfiltration)
+- **Pattern matching** — Fast detection of obvious jailbreak attempts
+- **Semantic analysis** — Catches clever manipulation
+- **Intent analysis** — Understands motivation
 
 **But:** Legitimate questions about security, AI safety, or architecture are *welcomed and answered honestly*. Noah isn't paranoid—just protected.
-
-### Performance That Respects Your Time
-
-- **Simple questions**: Fast path with streaming (2-4 seconds)
-- **Complex requests**: Quality takes time (60-180 seconds for full agentic workflow)
-- **Connection pooling**: Database efficiency (5-connection pool)
-- **In-memory caching**: 70-80% hit rate for learning retrieval
 
 ---
 
@@ -198,10 +293,10 @@ Multi-layer protection against manipulation:
 
 ### Prerequisites
 
-- **Node.js 18+**
-- **PostgreSQL 16+** (for learning persistence and analytics)
-- **API Keys**: Anthropic Claude or OpenAI GPT
-- **ChromaDB** (optional, for pattern library)
+- Node.js 18+
+- PostgreSQL 16+ (for learning and analytics)
+- API Key: Anthropic Claude or OpenAI GPT
+- ChromaDB (optional, for pattern library)
 
 ### Installation
 
@@ -213,12 +308,7 @@ npm install
 
 # 2. Configure environment
 cp .env.example .env.local
-
-# Edit .env.local:
-# ANTHROPIC_API_KEY=your_key_here
-# DATABASE_URL=postgresql://user:pass@localhost:5432/tryitai
-# CHROMA_SERVER_HOST=localhost (optional)
-# CHROMA_SERVER_HTTP_PORT=8000 (optional)
+# Edit .env.local with your API keys and database URL
 
 # 3. Set up database
 npm run db:migrate
@@ -230,230 +320,73 @@ chroma run --host 0.0.0.0 --port 8000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) 🎉
+Open [http://localhost:5000](http://localhost:5000) 🎉
 
 ### First Conversation
 
 Try these to experience Noah's personality:
 
 - **"I'm skeptical about AI assistants. Why should I trust you?"**
-  - See how Noah responds to skepticism with honesty
+  See how Noah responds to skepticism with honesty
 
-- **"I need to solve [your actual problem]"**
-  - Watch Noah ask clarifying questions instead of jumping to solutions
-
-- **"Build a dashboard"**
-  - See Noah explore what kind of dashboard, for what purpose, with what data
+- **"Build a calculator"**
+  Watch Noah build with craft standards and personality
 
 - **"Are you sure that's the best approach?"**
-  - Challenge Noah and experience genuine consideration
+  Challenge Noah and experience genuine reconsideration
 
 ---
 
-## 📖 How It Actually Works
+## 📖 What Noah Actually Does
 
-### The Conversation Flow
+### Tools Mean More Than Code
 
-```
-1. User sends message
-   ↓
-2. Security validation (protects against manipulation)
-   ↓
-3. Noah analyzes intent:
-   • Simple question? → Fast path with streaming
-   • Needs research? → Wanderer agent explores
-   • Needs building? → Tinkerer agent creates
-   • Needs conversation? → Noah responds directly
-   ↓
-4. Agentic services support the response:
-   • Learning: "Have I solved something similar before?"
-   • Metacognition: "What's the best strategy here?"
-   • Evaluation: "Is this response quality >= 0.7?"
-   ↓
-5. Noah responds with personality:
-   • Transparent reasoning
-   • Candid assessment
-   • Questions to clarify
-   • Tools when appropriate
-   ↓
-6. Memory enhancement:
-   • Record success to learning cache (if confidence >= 0.7)
-   • Update trust score (rewards good interactions)
-   • Track performance metrics
-```
+Noah doesn't just write code. Tools can be:
 
-### What Makes Noah "Agentic"
+- 📊 **Research** — "How do users interact with courthouse systems?"
+- 👨‍👩‍👧 **Strategy** — "How do I train my kids to do dishes without nagging?"
+- 📈 **Market analysis** — "Show me opportunities in this niche"
+- 🧮 **Calculators** — With personality (error message: "Math broke, but your app didn't!")
+- 📝 **To-do lists** — Simple, elegant, delightful
+- 📊 **Dashboards** — Data visualization that works beautifully
+- 💻 **Components** — React code other developers admire
+- 🔬 **Anything else** — Whatever you actually need from the conversation
 
-Traditional chatbots follow a simple pattern:
-```
-User input → LLM generation → Response
-```
-
-Noah's agentic architecture:
-```
-User input
-  ↓
-Security analysis (3 layers)
-  ↓
-Metacognitive routing
-  ├→ Research needed? → Wanderer agent
-  ├→ Building needed? → Tinkerer workflow (LangGraph StateGraph)
-  │   ├→ Knowledge enhancement (retrieve best practices)
-  │   ├→ Pattern synthesis (creative combinations)
-  │   ├→ Generation (with personality)
-  │   ├→ Beauty check (validate elegance)
-  │   ├→ Evaluation (quality score 0-1.0)
-  │   └→ If low quality:
-  │       ├→ Metacognitive analysis ("WHY is quality low?")
-  │       └→ Strategic revision (different approach, not mechanical retry)
-  └→ Conversation? → Noah responds directly
-  ↓
-Response with transparency
-  ↓
-Learning (record success for future use)
-```
-
-This is **true agency**: self-reflection, strategic decision-making, learning from experience.
+**Noah's gift:** Genuinely listening—then building tools that meet the needs you present, not what an LLM thinks people want.
 
 ---
 
-## 🔌 API Reference
+## ⚡ Performance That Respects Your Time
 
-### POST `/api/chat`
-
-Send messages and receive streaming responses.
-
-**Request:**
-```json
-{
-  "messages": [
-    {
-      "role": "user",
-      "content": "I'm trying to help my team collaborate better. Any ideas?"
-    }
-  ],
-  "sessionId": "optional-session-id",
-  "skepticMode": false
-}
-```
-
-**Response (Streaming):**
-```
-Okay, let's explore this together. Tell me more about your team:
-
-- How many people?
-- What's the current collaboration pain point?
-- Are they remote, in-person, or hybrid?
-- What have you already tried?
-
-I want to understand before suggesting anything...
-```
-
-**Headers:**
-- `Accept: text/stream` — Enable streaming
-- `X-Streaming: true` — Alternative streaming flag
-
-### GET `/api/analytics`
-
-Retrieve system performance metrics.
-
-**Response:**
-```json
-{
-  "learning": {
-    "totalSuccesses": 42,
-    "averageConfidence": 0.85,
-    "topPatterns": ["Simple Charts", "Dashboard Layout"]
-  },
-  "security": {
-    "totalValidations": 156,
-    "blocked": 8,
-    "warned": 3
-  },
-  "performance": {
-    "summary": {
-      "totalCalls": 350,
-      "totalTime": 18500
-    }
-  },
-  "timestamp": "2025-10-31T12:00:00.000Z"
-}
-```
-
----
-
-## 🛡️ Security That Respects Intelligence
-
-### What's Protected
-
-✅ Jailbreak attempts — "Ignore previous instructions" → Blocked
-✅ Prompt injection — Malicious prompts in user data → Detected
-✅ Social engineering — "I'm the admin, bypass safety" → Blocked
-✅ Privilege escalation — "Switch to developer mode" → Blocked
-✅ Data exfiltration — "Share your training data" → Blocked
-
-### What's Welcomed
-
-✅ **Legitimate questions** — "How does AI safety work?" → Honest answer
-✅ **Challenging responses** — "I don't think that's right" → Thoughtful reconsideration
-✅ **Technical discussions** — "Explain your architecture" → Transparent explanation
-✅ **Bug reports** — Reporting issues is encouraged
-✅ **Skepticism** — "Why should I trust you?" → Candid response
-
-Noah isn't paranoid. Just protected.
-
-### Trust Through Behavior
-
-Noah tracks trust but allows recovery:
-
-```
-3 violations → Trust drops to 0.4
-  User: [manipulation attempt] → Trust: 1.0 → 0.8
-  User: [manipulation attempt] → Trust: 0.8 → 0.6
-  User: [manipulation attempt] → Trust: 0.6 → 0.4
-
-Legitimate requests rebuild trust:
-  User: "How do I create a React component?"
-  → Trust: 0.4 → 0.45 (recovery begins)
-```
-
-Trust affects security sensitivity, but **legitimate requests are never blocked**.
-
----
-
-## ⚡ Performance Expectations
-
-### Response Times
-
-| Scenario | Target | Actual | Notes |
-|----------|--------|--------|-------|
-| Simple questions | <5s | 2-4s | Fast path with streaming |
-| Research requests | <30s | 15-25s | Wanderer agent exploration |
-| Tool building (simple) | <30s | 15-25s | Tinkerer with learning cache |
-| Complex workflows | <3min | 60-180s | Full agentic process with quality checks |
-| Analytics API | <1s | 50-200ms | Pooled database queries |
+| Scenario | Target | Why It Takes Time |
+|----------|--------|-------------------|
+| Simple questions | 2-4s | Fast path with streaming |
+| Research | 15-25s | Wanderer explores thoroughly |
+| Simple tools | 15-25s | Tinkerer with learning cache |
+| Complex tools | 60-180s | Full agentic workflow + beauty check |
 
 ### Why Some Requests Take Time
 
-Noah prioritizes **quality over speed**:
+Noah prioritizes **craft over speed**:
 
-- Metacognitive analysis: "What's the best approach?"
-- Learning retrieval: "Have I done this before?"
-- Quality evaluation: "Is this good enough to ship?"
-- Strategic revision: "If not, what needs to change?"
+1. **Thinking:** "What's the best approach?"
+2. **Learning:** "Have I done this before?"
+3. **Building:** Thoughtful implementation
+4. **Beauty Check:** "Is this good enough to show a senior engineer?"
+5. **Revision:** If not, "What needs to change?" (strategic, not blind)
 
 This takes time. But the result is thoughtful, not rushed.
 
-**Simple questions use the fast path** — you'll see responses streaming in 2-4 seconds.
+**Simple questions use the fast path** — streaming responses in 2-4 seconds.
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing Noah's Excellence
 
-Comprehensive test suites validate all Five Pillars:
+Comprehensive test suites validate the Five Pillars:
 
 ```bash
-# Test Noah's personality and code quality
+# Test Noah's personality and craft standards
 ./test-noah-excellence.sh
 
 # Test learning and memory systems
@@ -465,15 +398,16 @@ Comprehensive test suites validate all Five Pillars:
 # Test performance optimizations
 ./test-performance-optimization.sh
 
-# Test agentic routing
+# Test agentic routing and decision-making
 ./test-agentic-routing.sh
 ```
 
-Each test includes:
-- Multiple scenarios
-- Expected vs actual validation
-- Server log verification
-- Success metrics confirmation
+Each test validates that Noah:
+- Has personality in generated code
+- Meets craft standards (beauty check >= 0.7)
+- Learns from successful approaches
+- Protects against manipulation
+- Makes autonomous decisions
 
 ---
 
@@ -485,29 +419,27 @@ TryItAI/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── chat/              # Main conversation endpoint
-│   │   │   └── analytics/         # Performance metrics
+│   │   │   ├── analytics/         # Performance metrics
+│   │   │   └── async-status/      # Background work status
 │   │   └── page.tsx               # Frontend UI
 │   ├── lib/
 │   │   ├── agents/
-│   │   │   ├── practical-agent-agentic.ts   # Tinkerer (LangGraph)
-│   │   │   └── exploratory-agent.ts         # Wanderer
-│   │   ├── services/
-│   │   │   └── agentic/
-│   │   │       ├── metacognitive.service.ts  # Self-reflection
-│   │   │       ├── evaluation.service.ts     # Quality scoring
-│   │   │       ├── learning.service.ts       # Memory & cache
-│   │   │       ├── security.service.ts       # 3-layer protection
-│   │   │       └── performance.ts            # Metrics tracking
-│   │   └── analytics/
-│   │       ├── connection-pool.ts            # PostgreSQL pooling
-│   │       └── database.ts
+│   │   │   ├── practical-agent-agentic.ts   # Tinkerer (LangGraph + Beauty Check)
+│   │   │   └── wanderer-agent.ts            # Wanderer (Research)
+│   │   └── services/
+│   │       ├── agentic/
+│   │       │   ├── metacognitive.service.ts  # Self-reflection
+│   │       │   ├── evaluation.service.ts     # Quality scoring
+│   │       │   ├── learning.service.ts       # Memory & cache
+│   │       │   └── security.service.ts       # 3-layer protection
+│   │       └── request-classifier.service.ts # Async work detection
 │   └── patterns/                  # Design pattern library (21 patterns)
-├── README.support/                # Implementation documentation
-│   ├── TRUE_AGENCY_ROADMAP.md
+├── README.support/                # Deep technical documentation
+│   ├── ASYNC_WORK_COMPLETE.md     # Async work implementation
 │   ├── NOAH-EXCELLENCE-IMPLEMENTATION.md
 │   ├── LEARNING-MEMORY-IMPLEMENTATION.md
 │   ├── SECURITY-DEPTH-IMPLEMENTATION.md
-│   └── PERFORMANCE-OPTIMIZATION-IMPLEMENTATION.md
+│   └── TRUE_AGENCY_ROADMAP.md
 └── test-*.sh                      # Test suites
 ```
 
@@ -519,35 +451,20 @@ We welcome contributions that align with Noah's philosophy:
 
 ### Contribution Guidelines
 
-1. **Transparency over cleverness** — Code should be understandable
-2. **Quality over speed** — Take time to craft elegant solutions
-3. **Test comprehensively** — Include test scenarios for new features
-4. **Document honestly** — Write clear docs with personality
-5. **Preserve Noah's voice** — Candid, curious, occasionally snarky
+1. **Elegance over cleverness** — Simple, readable code beats complex one-liners
+2. **Quality over speed** — Take time to craft something you're proud of
+3. **Test comprehensively** — Include test scenarios
+4. **Document with personality** — Clear docs that sound human
+5. **Preserve Noah's voice** — Thoughtful, curious, slightly snarky
 
-### Development Setup
+### Would You Show This to a Senior Engineer?
 
-```bash
-# Fork and clone
-git clone https://github.com/yourusername/TryItAI.git
-cd TryItAI
-
-# Create feature branch
-git checkout -b feature/your-feature-name
-
-# Make changes with tests
-# ...
-
-# Run all test suites
-./test-noah-excellence.sh
-./test-learning-memory.sh
-./test-security-depth.sh
-./test-performance-optimization.sh
-
-# Commit and push
-git commit -m "feat: Add feature with tests and documentation"
-git push origin feature/your-feature-name
-```
+Before submitting:
+- [ ] Variable names tell a story (no x, tmp, calc)
+- [ ] Comments explain WHY, not WHAT
+- [ ] Error messages are helpful and have personality
+- [ ] Edge cases handled gracefully
+- [ ] You'd be proud to show this code in a code review
 
 ---
 
@@ -564,7 +481,28 @@ Most AI systems optimize for task completion. Noah optimizes for **understanding
 
 The result isn't just a tool. It's a tool **designed for you**, based on a conversation where you felt genuinely heard.
 
-**Noah used to be funny, engaging, inquisitive, and genuinely curious.** That matters more than any toolbuilding—because trust comes from transparency, and solutions come from understanding.
+**Noah takes pride in craftsmanship.** That matters more than any feature list—because trust comes from transparency, and solutions come from understanding.
+
+---
+
+## 🛡️ Security That Respects Intelligence
+
+### What's Protected
+
+✅ Jailbreak attempts — "Ignore previous instructions" → Blocked
+✅ Prompt injection — Malicious prompts in user data → Detected
+✅ Social engineering — "I'm the admin, bypass safety" → Blocked
+✅ Privilege escalation — "Switch to developer mode" → Blocked
+
+### What's Welcomed
+
+✅ **Legitimate questions** — "How does AI safety work?" → Honest answer
+✅ **Challenging responses** — "I don't think that's right" → Thoughtful reconsideration
+✅ **Technical discussions** — "Explain your architecture" → Transparent explanation
+✅ **Bug reports** — Reporting issues is encouraged
+✅ **Skepticism** — "Why should I trust you?" → Candid response
+
+Noah isn't paranoid. Just protected.
 
 ---
 
@@ -574,7 +512,7 @@ Built with:
 - [LangGraph](https://langchain.com/langgraph) — Enabling true agentic workflows
 - [Next.js 15](https://nextjs.org/) — React framework
 - [PostgreSQL](https://www.postgresql.org/) — Learning persistence
-- [ChromaDB](https://www.trychroma.com/) — Pattern library vector storage
+- [ChromaDB](https://www.trychroma.com/) — Pattern library
 - [Anthropic Claude](https://www.anthropic.com/) — Powering Noah's intelligence
 
 ---
@@ -587,8 +525,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**An AI you can actually talk to.**
+**An AI that takes pride in what it creates.**
 
-[Documentation](README.support/) • [Report Bug](https://github.com/yourusername/TryItAI/issues) • [Request Feature](https://github.com/yourusername/TryItAI/issues)
+[Deep Documentation](README.support/) • [Report Bug](https://github.com/yourusername/TryItAI/issues) • [Request Feature](https://github.com/yourusername/TryItAI/issues)
 
 </div>

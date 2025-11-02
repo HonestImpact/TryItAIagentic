@@ -17,6 +17,7 @@ import { analyticsPool } from '@/lib/analytics/connection-pool';
 import { NoahSafetyService } from '@/lib/safety';
 import { createAgenticServices, type AgenticServices } from '@/lib/services/agentic';
 import { LLMProvider } from '@/lib/services/llm-provider';
+import { requestClassifier, RequestTier } from '@/lib/services/request-classifier.service';
 
 const logger = createLogger('noah-chat');
 
@@ -49,6 +50,9 @@ let agentInitializationPromise: Promise<void> | null = null;
 
 // Feature flag: Use agentic version of Tinkerer
 const USE_AGENTIC_TINKERER = process.env.USE_AGENTIC_TINKERER !== 'false'; // Default to true
+
+// Feature flag: Enable async work with conversational continuity
+const ENABLE_ASYNC_WORK = process.env.ENABLE_ASYNC_WORK === 'true'; // Default to false (not implemented yet)
 
 // Optimized timeout configuration for production
 const NOAH_TIMEOUT = 45000; // 45 seconds for Noah direct responses
@@ -1247,22 +1251,40 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
 export async function POST(req: NextRequest): Promise<NextResponse | Response> {
   // Check if this is a tool creation request
   const body = await req.clone().json().catch(() => ({ messages: [] }));
-  const lastMessage = body?.messages?.[body.messages.length - 1]?.content?.toLowerCase() || '';
-  
+  const lastMessage = body?.messages?.[body.messages.length - 1]?.content || '';
+
+  // 🎯 Phase 1: Request Classification (with feature flag)
+  if (ENABLE_ASYNC_WORK && lastMessage) {
+    const classification = requestClassifier.classify(lastMessage);
+
+    logger.info('📊 Request classified', {
+      tier: classification.tier,
+      confidence: classification.confidence,
+      estimatedDuration: `${classification.estimatedDuration}s`,
+      reasoning: classification.reasoning
+    });
+
+    // TODO: Phase 2-9 - Use classification for async work routing
+    // For now, just logging for observation
+  }
+
+  // Legacy keyword-based check (will be replaced by classifier)
   const toolCreationKeywords = [
     'create', 'build', 'make', 'calculator', 'timer', 'converter', 'tool', 'app', 'component'
   ];
-  const isToolCreation = toolCreationKeywords.some(keyword => lastMessage.includes(keyword));
-  
+  const isToolCreation = toolCreationKeywords.some(keyword =>
+    lastMessage.toLowerCase().includes(keyword)
+  );
+
   // Force tool creation to use non-streaming for proper artifact processing
   if (isToolCreation) {
     return withLogging(noahChatHandler)(req);
   }
-  
+
   // Check if client supports streaming for other requests
   const acceptHeader = req.headers.get('accept') || '';
   const isStreamingRequest = acceptHeader.includes('text/stream') || req.headers.get('x-streaming') === 'true';
-  
+
   if (isStreamingRequest) {
     // Streaming handler returns Response directly (not wrapped in withLogging)
     const sessionId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

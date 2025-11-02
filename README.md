@@ -485,6 +485,22 @@ The result isn't just a tool. It's a tool **designed for you**, based on a conve
 
 ---
 
+## 🔮 What's Next?
+
+Noah is complete and production-ready. But there are always more ways to make excellence even better:
+
+- ⚡ **Dual-speed architecture** — 5-second simple tools + thoughtful complex work
+- 🎬 **Iconic opening message** — "I don't know why you're here..."
+- 😏 **More personality** — Even snarkier, even more candid
+- 🔍 **Workflow transparency** — See what Noah's thinking during builds
+- 🧠 **Learning visibility** — "I remember building something similar..."
+
+**Want to see the roadmap?** Check out [FUTURE_ENHANCEMENTS.md](README.support/FUTURE_ENHANCEMENTS.md) for the complete list with effort estimates and priorities.
+
+**Current focus:** Testing, refining, making sure the craft is perfect before adding more features.
+
+---
+
 ## 🛡️ Security That Respects Intelligence
 
 ### What's Protected

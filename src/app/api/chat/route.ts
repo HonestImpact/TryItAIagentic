@@ -1296,8 +1296,8 @@ export async function POST(req: NextRequest): Promise<NextResponse | Response> {
       reasoning: classification.reasoning
     });
 
-    // TODO: Phase 2-9 - Use classification for async work routing
-    // For now, just logging for observation
+    // Note: Classification used by async workflow orchestrator (lines 863-884)
+    // when ENABLE_ASYNC_WORK is true
   }
 
   // Legacy keyword-based check (will be replaced by classifier)

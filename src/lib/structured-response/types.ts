@@ -1,6 +1,11 @@
 // Structured Response Types - Elegant, type-safe response contracts
 // Replaces brittle regex parsing with deterministic structured responses
 
+export interface BeautyCheck {
+  passed: boolean;
+  badges: string[]; // e.g., ["Elegant", "Stories", "Personality"]
+}
+
 export interface StructuredArtifact {
   title: string;
   content: string;
@@ -10,6 +15,7 @@ export interface StructuredArtifact {
   features?: string[];
   dependencies?: string[];
   complexity?: 'simple' | 'moderate' | 'complex' | 'advanced';
+  beautyCheck?: BeautyCheck; // Only present when Tinkerer generates code
 }
 
 export interface StructuredResponse {

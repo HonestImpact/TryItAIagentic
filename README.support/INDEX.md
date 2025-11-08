@@ -60,6 +60,12 @@ This directory contains deep technical details, implementation guides, architect
 - User feedback integrations
 - Future roadmap items
 
+**[FUTURE_ENHANCEMENTS.md](./FUTURE_ENHANCEMENTS.md)** ⭐ NEW
+- 10 enhancement ideas for future development
+- Effort estimates and prioritization framework
+- Decision criteria for implementing enhancements
+- Philosophy: "Ship excellence first, enhance thoughtfully later"
+
 ### 📊 Analysis & Comparison
 
 **[AGENTIC_REFACTOR_ANALYSIS.md](./AGENTIC_REFACTOR_ANALYSIS.md)**
@@ -103,6 +109,14 @@ This directory contains deep technical details, implementation guides, architect
 - Original refactoring vision
 - Prompt used for agentic transformation
 
+### 🧪 Testing
+
+**[CONVERSATIONAL-QUALITY-TESTING.md](./CONVERSATIONAL-QUALITY-TESTING.md)** ⭐ NEW
+- Testing Noah's personality and human-centered responses
+- Philosophy: Test the promise, not just the plumbing
+- 7 test categories covering curiosity, personality, learning, and transparency
+- Manual evaluation methodology with 20 diverse scenarios
+
 ---
 
 ## 📚 Documentation by Topic
@@ -144,6 +158,12 @@ This directory contains deep technical details, implementation guides, architect
 |----------|------------------|
 | [ASYNC_WORK_COMPLETE.md](./ASYNC_WORK_COMPLETE.md) | Complete implementation guide |
 | [ASYNC_WORK_IMPLEMENTATION_PLAN.md](./ASYNC_WORK_IMPLEMENTATION_PLAN.md) | Original plan and design philosophy |
+
+### Testing
+
+| Document | What You'll Learn |
+|----------|------------------|
+| [CONVERSATIONAL-QUALITY-TESTING.md](./CONVERSATIONAL-QUALITY-TESTING.md) | Testing Noah's personality, curiosity, and human-centered responses |
 
 ---
 
@@ -198,6 +218,7 @@ This directory contains deep technical details, implementation guides, architect
 - **Analytics endpoint**: Main [README.md § API Reference](../README.md#-api-reference)
 
 ### Testing
+- **Conversational quality**: [CONVERSATIONAL-QUALITY-TESTING.md](./CONVERSATIONAL-QUALITY-TESTING.md) - Test Noah's personality and human responses
 - **Test suites**: [TRUE_AGENCY_ROADMAP.md § Testing](./TRUE_AGENCY_ROADMAP.md)
 - **Noah excellence tests**: [NOAH-EXCELLENCE-IMPLEMENTATION.md § Test Results](./NOAH-EXCELLENCE-IMPLEMENTATION.md#test-results)
 - **Async work tests**: [ASYNC_WORK_COMPLETE.md § Testing](./ASYNC_WORK_COMPLETE.md#testing)

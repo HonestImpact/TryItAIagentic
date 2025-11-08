@@ -545,8 +545,8 @@ export default function TrustRecoveryProtocol() {
           background-image: url('/dragonfly-bg.png');
           background-position: center center;
           background-repeat: no-repeat;
-          background-size: 60%;
-          opacity: 0.06;
+          background-size: 65%;
+          opacity: 0.20;
           pointer-events: none;
           z-index: 0;
         }
@@ -569,7 +569,6 @@ export default function TrustRecoveryProtocol() {
           padding: 2rem 2rem 1rem;
           height: calc(100vh - 300px);
           min-height: 500px;
-          background: var(--black);
           z-index: 10;
         }
 
@@ -816,7 +815,6 @@ export default function TrustRecoveryProtocol() {
 
         .bottom-section {
           border-top: 1px solid var(--charcoal-light);
-          background: var(--black);
           flex-shrink: 0;
           position: relative;
           transition: all 0.6s var(--ease-smooth);

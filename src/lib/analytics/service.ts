@@ -15,8 +15,10 @@ import type {
 const logger = createLogger('analytics-service');
 
 /**
- * Core analytics service for Noah - designed for zero performance impact
- * All operations are async and fire-and-forget to maintain Noah's responsiveness
+ * Core analytics service for Noah
+ *
+ * Session/conversation setup blocks (~100-200ms) to ensure IDs are available.
+ * All subsequent operations (messages, tools, errors) are fire-and-forget for zero impact.
  */
 class AnalyticsService {
   private environment: 'development' | 'preview' | 'production';
@@ -42,7 +44,8 @@ class AnalyticsService {
   }
 
   /**
-   * Fire-and-forget session management - no performance impact
+   * Ensure session exists (blocks ~50-100ms for DB write)
+   * Called once per request to get sessionId for conversation tracking
    */
   async ensureSession(userAgent?: string, ipAddress?: string): Promise<string | null> {
     if (!this.isEnabled) return null;

@@ -5,6 +5,26 @@
 **Priority:** Non-blocking enhancements to consider after core implementation
 
 ---
+---
+update 11/9/2025 -- 
+
+FUTURE ENHANCEMENTS BELOW -- Proceed
+### 1. Dual-Speed Architecture ⚡
+### 2. Transparent Workflow Visibility 🔍
+### 5. Learning Cache Transparency 🧠
+### 6. Bidirectional Async Communication 🔄
+### 7. Persistent State with Redis 💾
+### 8. Work Cancellation 🛑
+
+
+FUTURE ENHANCEMENTS BELOW -- Not yet implementing:
+### 3. Conversational Personality Boost 😏 -- I think we did this already!!!
+### 4. Iconic Opening Message 🎬
+### 9. Priority Adjustment 🎚️
+### 10. Parallel Work Streams 🔀
+
+---
+---
 
 ## 🎯 Overview
 

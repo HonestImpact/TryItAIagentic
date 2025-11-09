@@ -5,7 +5,7 @@
 
 import { createLogger } from '@/lib/logger';
 import { embeddingService } from './embeddings';
-import { vectorStore } from './vector-store';
+import { pgVectorStore as vectorStore } from './vector-store-pgvector';
 
 const logger = createLogger('document-processor');
 

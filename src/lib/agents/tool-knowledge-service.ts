@@ -1,10 +1,18 @@
 /**
  * Tool Knowledge Service
  * Provides intelligent design pattern loading for enhanced agent capabilities
+ *
+ * DUAL-SOURCE ARCHITECTURE:
+ * 1. PostgreSQL tool_reference: Keyword search for static templates (fast, 21 tools)
+ * 2. ChromaDB: Semantic search for generated tools (learns from every creation)
+ *
+ * Together they provide both structured templates AND organic learning.
  */
 
 import { createLogger } from '@/lib/logger';
 import { toolReferenceService, type ToolReference } from '@/lib/knowledge/tool-reference-service';
+import { ragSystem } from '@/../../rag/index-pgvector';
+import { AI_CONFIG } from '@/lib/ai-config';
 
 const logger = createLogger('tool-knowledge');
 
@@ -53,17 +61,50 @@ export class ToolKnowledgeService {
         return this.buildKnowledgeContext(userRequest, cachedPatterns);
       }
 
-      // Extract key concepts and search for relevant tools
+      // DUAL-SOURCE SEARCH: Combine keyword templates + semantic learning
       const searchTerms = this.extractSearchTerms(userRequest);
       const relevantTools: ToolReference[] = [];
 
-      // Search with multiple strategies
+      // 1. POSTGRESQL: Fast keyword search for static templates
+      logger.info('🔍 PostgreSQL keyword search', { searchTerms });
       for (const term of searchTerms) {
         try {
           const tools = await toolReferenceService.searchTools(term, { limit: 3 });
           relevantTools.push(...tools);
+          logger.debug('Found template tools', { term, count: tools.length });
         } catch (error) {
-          logger.warn('Search term failed, continuing', { term, error });
+          logger.warn('PostgreSQL search failed, continuing', { term, error });
+        }
+      }
+
+      // 2. CHROMADB: Semantic search for learned patterns (if enabled)
+      if (AI_CONFIG.RAG_ENABLED) {
+        try {
+          logger.info('🔮 ChromaDB semantic search', { query: userRequest.substring(0, 100) });
+          const semanticResults = await ragSystem.search(userRequest, {
+            maxResults: 5,
+            minRelevanceScore: AI_CONFIG.RAG_RELEVANCE_THRESHOLD
+          });
+
+          // Convert ChromaDB results to ToolReference format
+          const semanticTools = semanticResults.map(result => ({
+            id: 0, // Semantic results don't have DB IDs
+            toolName: result.metadata.title || 'generated-tool',
+            title: result.metadata.title || 'Generated Tool',
+            description: result.content.substring(0, 200),
+            category: result.metadata.category || 'generated',
+            features: '',
+            functionality: '',
+            usagePatterns: '',
+            htmlContent: result.content,
+            filename: '',
+            createdAt: new Date()
+          }));
+
+          relevantTools.push(...semanticTools);
+          logger.info('Found semantic matches', { count: semanticTools.length });
+        } catch (error) {
+          logger.warn('ChromaDB search failed, continuing with PostgreSQL only', { error });
         }
       }
 

@@ -1,10 +1,17 @@
 // Artifact Service - Structured tool generation and storage with elegant analytics integration
 // Replaces brittle regex parsing with deterministic structured response handling
+//
+// LEARNING LOOP: Every generated tool is:
+// 1. Logged to PostgreSQL (analytics/toolbox)
+// 2. Indexed in ChromaDB (semantic learning)
+// This creates organic semantic memory from day 1.
 
 import { analyticsService } from '@/lib/analytics';
 import { createLogger } from '@/lib/logger';
 import { StructuredResponseParser, type ParseResult } from '@/lib/structured-response/parser';
 import type { StructuredResponse } from '@/lib/structured-response/types';
+import { ragSystem } from '@/../../rag/index-pgvector';
+import { AI_CONFIG } from '@/lib/ai-config';
 
 const logger = createLogger('artifact-service');
 
@@ -89,30 +96,102 @@ export class ArtifactService {
         agentStrategy: agentStrategy || 'noah_direct'
       });
 
-      // Log tool generation with analytics integration (fire-and-forget)
-      if (conversationState?.conversationId && conversationState?.sessionId) {
-        analyticsService.logGeneratedTool(
-          conversationState.conversationId,
-          conversationState.sessionId,
-          undefined, // messageId will be handled in the chat route
-          artifact.title,
-          artifact.content,
-          generationTime,
-          agentUsed,
-          userMessage.length,
-          agentStrategy
-        );
+      // Log tool generation with analytics integration (fire-and-forget with retry)
+      const logTool = () => {
+        if (conversationState?.conversationId && conversationState?.sessionId) {
+          analyticsService.logGeneratedTool(
+            conversationState.conversationId,
+            conversationState.sessionId,
+            undefined, // messageId will be handled in the chat route
+            artifact.title,
+            artifact.content,
+            generationTime,
+            agentUsed,
+            userMessage.length,
+            agentStrategy
+          );
 
-        logger.debug('Structured tool logged to analytics', {
-          title: artifact.title,
-          type: artifact.type,
-          toolLength: artifact.content.length,
-          generationTime,
-          userMessageLength: userMessage.length,
-          agentUsed,
-          agentStrategy: agentStrategy || 'noah_direct'
-        });
-      }
+          logger.debug('Structured tool logged to analytics', {
+            title: artifact.title,
+            type: artifact.type,
+            toolLength: artifact.content.length,
+            generationTime,
+            userMessageLength: userMessage.length,
+            agentUsed,
+            agentStrategy: agentStrategy || 'noah_direct'
+          });
+
+          // LEARNING LOOP: Index tool in ChromaDB for semantic search (fire-and-forget)
+          if (AI_CONFIG.RAG_ENABLED) {
+            ragSystem.addDocuments([{
+              id: `${conversationState.sessionId}_${artifact.title}_${Date.now()}`,
+              content: artifact.content,
+              metadata: {
+                source: 'generated',
+                type: 'artifact',
+                title: artifact.title,
+                category: artifact.category || artifact.type,
+                timestamp: new Date().toISOString()
+              }
+            }]).catch(error => {
+              logger.warn('Failed to index tool in ChromaDB, continuing', {
+                title: artifact.title,
+                error
+              });
+            });
+            logger.debug('Tool indexed in ChromaDB for semantic learning', {
+              title: artifact.title
+            });
+          }
+        } else if (conversationState?.sessionId) {
+          // ConversationId not ready yet, retry once after brief delay
+          logger.debug('Conversation ID pending, queuing tool log retry', {
+            title: artifact.title
+          });
+          setTimeout(() => {
+            if (conversationState?.conversationId) {
+              analyticsService.logGeneratedTool(
+                conversationState.conversationId,
+                conversationState.sessionId!,
+                undefined,
+                artifact.title,
+                artifact.content,
+                generationTime,
+                agentUsed,
+                userMessage.length,
+                agentStrategy
+              );
+              logger.debug('Tool logged after retry', { title: artifact.title });
+
+              // LEARNING LOOP: Index in ChromaDB (retry path)
+              if (AI_CONFIG.RAG_ENABLED) {
+                ragSystem.addDocuments([{
+                  id: `${conversationState.sessionId}_${artifact.title}_${Date.now()}`,
+                  content: artifact.content,
+                  metadata: {
+                    source: 'generated',
+                    type: 'artifact',
+                    title: artifact.title,
+                    category: artifact.category || artifact.type,
+                    timestamp: new Date().toISOString()
+                  }
+                }]).catch(error => {
+                  logger.warn('Failed to index tool in ChromaDB (retry path)', {
+                    title: artifact.title,
+                    error
+                  });
+                });
+              }
+            } else {
+              logger.warn('Tool logging skipped - conversation ID never became available', {
+                title: artifact.title
+              });
+            }
+          }, 200); // Brief delay for conversation creation to complete
+        }
+      };
+
+      logTool();
       
       return {
         hasArtifact: true,

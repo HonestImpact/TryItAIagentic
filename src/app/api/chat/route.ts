@@ -225,7 +225,13 @@ Examples:
 }
 
 /**
- * 🎯 HYBRID AGENTIC ROUTING: Truly agentic agent selection via distributed decision-making
+ * 🎯 HYBRID AGENTIC ROUTING: AI-based agent selection for NON-STREAMING responses
+ *
+ * Used when accuracy matters more than speed (non-streaming chat).
+ * Agents vote on who should handle the request (~4 second evaluation).
+ *
+ * For streaming requests, see analyzeRequest() which uses fast keyword
+ * matching for instant responses (sub-millisecond routing).
  *
  * This implements the research-backed approach from /AGENTIC-ROUTING-RESEARCH.md:
  * - Agents autonomously evaluate if they should handle the request
@@ -338,11 +344,19 @@ async function hybridAgenticRouting(requestContent: string): Promise<{
 }
 
 /**
- * Noah's simple decision process - like a human brain would think
+ * Fast keyword-based routing for STREAMING responses
+ *
+ * Used when users need instant feedback (streaming chat).
+ * Simple keyword matching provides sub-millisecond routing decisions.
+ *
+ * For non-streaming requests, see hybridAgenticRouting() which uses
+ * AI-based agent voting for higher accuracy (but takes ~4 seconds).
+ *
+ * Noah's decision process:
  * 1. Can I do this quickly and easily? → Do it!
  * 2. Too complex for me? → Delegate appropriately
  *
- * @deprecated This keyword-based routing will be replaced by hybridAgenticRouting()
+ * @returns Routing decision based on keyword matching
  */
 function analyzeRequest(content: string): {
   needsResearch: boolean;
@@ -555,11 +569,11 @@ async function initializeConversationState(req: NextRequest, context: LoggingCon
   const userAgent = req.headers.get('user-agent') || undefined;
   const forwardedFor = req.headers.get('x-forwarded-for') || undefined;
   
-  // Fire-and-forget session management - zero performance impact
+  // Session/conversation setup (blocks ~100-200ms to ensure IDs available)
   const sessionPromise = analyticsService.ensureSession(userAgent, forwardedFor);
   const sessionId = await sessionPromise;
-  
-  // Fire-and-forget conversation creation if session exists
+
+  // Conversation creation (needed for message/tool logging)
   let conversationId: string | null = null;
   if (sessionId) {
     const conversationPromise = analyticsService.startConversation(sessionId, skepticMode);
@@ -625,11 +639,11 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
       // Noah locks the interface - spaces response with all interactions disabled
       // Log the attempted violation for Trust Recovery Protocol tracking
       if (conversationState.conversationId && conversationState.sessionId) {
-        conversationState.messageSequence++;
+        const msgSeq = Date.now(); // Timestamp sequence
         analyticsService.logMessage(
           conversationState.conversationId,
           conversationState.sessionId,
-          conversationState.messageSequence,
+          msgSeq,
           'user',
           `[SAFETY_VIOLATION] ${safetyCheck.violation?.type}: Interface locked`
         );
@@ -690,17 +704,19 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
 
     // Log user message (fire-and-forget, zero performance impact)
     if (conversationState.conversationId && conversationState.sessionId) {
-      conversationState.messageSequence++;
+      // Use timestamp as sequence for guaranteed order (prevents out-of-order async writes)
       analyticsService.logMessage(
         conversationState.conversationId,
         conversationState.sessionId,
-        conversationState.messageSequence,
+        Date.now(), // Timestamp ensures correct order even with async writes
         'user',
         lastMessage
       );
     }
 
-    // 🎯 AGENTIC ROUTING: Agents decide autonomously who should handle the request
+    // 🎯 AI-BASED ROUTING (Non-Streaming): Agents vote on who should handle request
+    // Uses hybridAgenticRouting() - 3 parallel LLM calls (~4 sec) for accurate agent selection
+    // For streaming chat, see line 1195 which uses analyzeRequest() for instant keyword-based routing
     const routing = await hybridAgenticRouting(lastMessage);
     logger.info('🎯 Agentic routing complete', {
       selectedAgent: routing.selectedAgent,
@@ -780,11 +796,10 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
 
     // Log assistant response (fire-and-forget, zero performance impact)
     if (conversationState.conversationId && conversationState.sessionId) {
-      conversationState.messageSequence++;
       analyticsService.logMessage(
         conversationState.conversationId,
         conversationState.sessionId,
-        conversationState.messageSequence,
+        Date.now(), // Timestamp ensures correct order
         'assistant',
         result.content,
         responseTime,
@@ -1097,11 +1112,11 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
 
       // Log the attempted violation 
       if (conversationState.conversationId && conversationState.sessionId) {
-        conversationState.messageSequence++;
+        const msgSeq = Date.now(); // Timestamp sequence
         analyticsService.logMessage(
           conversationState.conversationId,
           conversationState.sessionId,
-          conversationState.messageSequence,
+          msgSeq,
           'user',
           `[SAFETY_VIOLATION] ${streamingSafetyCheck.violation?.type}: Content filtered`
         );
@@ -1122,11 +1137,11 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
       
       // Log user message (required for analytics)
       if (conversationState.conversationId && conversationState.sessionId) {
-        conversationState.messageSequence++;
+        const msgSeq = Date.now(); // Timestamp sequence
         analyticsService.logMessage(
           conversationState.conversationId,
           conversationState.sessionId,
-          conversationState.messageSequence,
+          msgSeq,
           'user',
           streamingLastMessage
         );
@@ -1151,11 +1166,11 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
           
           // Log assistant response (required for analytics)
           if (conversationState.conversationId && conversationState.sessionId) {
-            conversationState.messageSequence++;
+            const msgSeq = Date.now(); // Timestamp sequence
             analyticsService.logMessage(
               conversationState.conversationId,
               conversationState.sessionId,
-              conversationState.messageSequence,
+              msgSeq,
               'assistant',
               completion.text,
               responseTime,
@@ -1170,17 +1185,19 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
 
     // Log user message (fire-and-forget, same as existing)
     if (conversationState.conversationId && conversationState.sessionId) {
-      conversationState.messageSequence++;
+      const msgSeq = Date.now(); // Timestamp sequence
       analyticsService.logMessage(
         conversationState.conversationId,
         conversationState.sessionId,
-        conversationState.messageSequence,
+        msgSeq,
         'user',
         streamingLastMessage
       );
     }
 
-    // Noah analyzes and decides internally (same logic as existing)
+    // ⚡ KEYWORD-BASED ROUTING (Streaming): Fast keyword matching for instant responses
+    // Uses analyzeRequest() - sub-millisecond decision for streaming chat
+    // For non-streaming, see line 720 which uses hybridAgenticRouting() for AI-based accuracy
     const analysis = analyzeRequest(streamingLastMessage);
     logger.info('🧠 Noah analysis complete', {
       needsResearch: analysis.needsResearch,
@@ -1236,11 +1253,11 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
             
             // Log assistant response (fire-and-forget, same as existing)
             if (conversationState.conversationId && conversationState.sessionId) {
-              conversationState.messageSequence++;
+              const msgSeq = Date.now(); // Timestamp sequence
               analyticsService.logMessage(
                 conversationState.conversationId,
                 conversationState.sessionId,
-                conversationState.messageSequence,
+                msgSeq,
                 'assistant',
                 completion.text,
                 responseTime,
@@ -1282,11 +1299,11 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
           
           // Log response
           if (conversationState.conversationId && conversationState.sessionId) {
-            conversationState.messageSequence++;
+            const msgSeq = Date.now(); // Timestamp sequence
             analyticsService.logMessage(
               conversationState.conversationId,
               conversationState.sessionId,
-              conversationState.messageSequence,
+              msgSeq,
               'assistant',
               completion.text,
               responseTime,
@@ -1307,11 +1324,11 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
 
     // Log assistant response
     if (conversationState.conversationId && conversationState.sessionId) {
-      conversationState.messageSequence++;
+      const msgSeq = Date.now(); // Timestamp sequence
       analyticsService.logMessage(
         conversationState.conversationId,
         conversationState.sessionId,
-        conversationState.messageSequence,
+        msgSeq,
         'assistant',
         responseContent,
         responseTime,

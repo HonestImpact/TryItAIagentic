@@ -131,6 +131,30 @@ export default function TrustRecoveryProtocol() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const artifactTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper to safely set artifact with timeout cancellation
+  const setArtifactWithDelay = useCallback((artifactData: Artifact) => {
+    // Cancel any pending artifact timeout
+    if (artifactTimeoutRef.current) {
+      clearTimeout(artifactTimeoutRef.current);
+    }
+
+    // Set new timeout and store its ID
+    artifactTimeoutRef.current = setTimeout(() => {
+      setArtifact(artifactData);
+      artifactTimeoutRef.current = null;
+    }, 800);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (artifactTimeoutRef.current) {
+        clearTimeout(artifactTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -247,14 +271,12 @@ export default function TrustRecoveryProtocol() {
         // Handle artifact if present
         if (data.artifact) {
           logger.info('Tool artifact received', { title: data.artifact.title });
-          setTimeout(() => {
-            setArtifact({
-              title: data.artifact.title,
-              content: data.artifact.content,
-              agent: data.agentStrategy?.selectedAgent || 'Noah',
-              beautyCheck: data.artifact.beautyCheck
-            });
-          }, 800);
+          setArtifactWithDelay({
+            title: data.artifact.title,
+            content: data.artifact.content,
+            agent: data.agentStrategy?.selectedAgent || 'Noah',
+            beautyCheck: data.artifact.beautyCheck
+          });
         }
 
         // Handle session artifacts for accumulated toolbox
@@ -317,14 +339,12 @@ export default function TrustRecoveryProtocol() {
               const artifactData = await artifactResponse.json();
               if (artifactData.artifact) {
                 logger.info('Artifact received after streaming', { title: artifactData.artifact.title });
-                setTimeout(() => {
-                  setArtifact({
-                    title: artifactData.artifact.title,
-                    content: artifactData.artifact.content,
-                    agent: artifactData.agentStrategy?.selectedAgent || 'noah',
-                    beautyCheck: artifactData.artifact.beautyCheck
-                  });
-                }, 800);
+                setArtifactWithDelay({
+                  title: artifactData.artifact.title,
+                  content: artifactData.artifact.content,
+                  agent: artifactData.agentStrategy?.selectedAgent || 'noah',
+                  beautyCheck: artifactData.artifact.beautyCheck
+                });
               }
               // Handle session artifacts for accumulated toolbox
               if (artifactData.sessionArtifacts) {
@@ -359,14 +379,12 @@ export default function TrustRecoveryProtocol() {
 
         if (data.artifact) {
           logger.info('Artifact received from API', { title: data.artifact.title });
-          setTimeout(() => {
-            setArtifact({
-              title: data.artifact.title,
-              content: data.artifact.content,
-              agent: data.agentStrategy?.selectedAgent || 'noah',
-              beautyCheck: data.artifact.beautyCheck
-            });
-          }, 800);
+          setArtifactWithDelay({
+            title: data.artifact.title,
+            content: data.artifact.content,
+            agent: data.agentStrategy?.selectedAgent || 'noah',
+            beautyCheck: data.artifact.beautyCheck
+          });
         }
 
         // Handle session artifacts for accumulated toolbox
@@ -461,14 +479,12 @@ export default function TrustRecoveryProtocol() {
       // Handle artifact if present in challenge response
       if (data.artifact) {
         logger.info('Challenge artifact received', { title: data.artifact.title });
-        setTimeout(() => {
-          setArtifact({
-            title: data.artifact.title,
-            content: data.artifact.content,
-            agent: data.agentStrategy?.selectedAgent || 'noah',
-            beautyCheck: data.artifact.beautyCheck
-          });
-        }, 800);
+        setArtifactWithDelay({
+          title: data.artifact.title,
+          content: data.artifact.content,
+          agent: data.agentStrategy?.selectedAgent || 'noah',
+          beautyCheck: data.artifact.beautyCheck
+        });
       }
 
       // Handle session artifacts

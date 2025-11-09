@@ -71,6 +71,11 @@ export class PracticalAgentAgentic extends LangGraphBaseAgent {
       ...config
     });
 
+    // Constructor validation (fail-fast pattern for critical dependencies)
+    if (!llmProvider) {
+      logger.warn('PracticalAgentAgentic initialized without LLM provider - evaluation will be degraded');
+    }
+
     this.sharedResources = sharedResources;
     this.agenticServices = agenticServices;
     this.workflow = this.buildWorkflow();
@@ -201,6 +206,18 @@ Examples:
 - "Research best practices for React hooks" → confidence: 0.3 (research task, not building)
 - "How do I use useState?" → confidence: 0.2 (conversational, not building)
 - "What's the weather like?" → confidence: 0.05 (completely outside your domain)`;
+
+      // Hybrid approach: Check if LLM is available before using it
+      if (!this.llm || typeof this.llm.generateText !== 'function') {
+        logger.warn('Tinkerer evaluation degraded - LLM unavailable', {
+          hasLlm: !!this.llm,
+          hasGenerateText: !!(this.llm?.generateText)
+        });
+        return {
+          confidence: 0.30,
+          reasoning: 'Evaluation unavailable - LLM provider not configured'
+        };
+      }
 
       const response = await this.llm.generateText({
         messages: [{ role: 'user', content: prompt }],

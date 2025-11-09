@@ -141,7 +141,9 @@ Respond ONLY in JSON:
         temperature: 0.2
       });
 
-      const analysis = JSON.parse(result.content);
+      // Strip markdown code blocks if present (LLM sometimes wraps JSON in ```json ... ```)
+      const cleanJson = result.content.replace(/```json\s*|\s*```/g, '').trim();
+      const analysis = JSON.parse(cleanJson);
 
       logger.info('🎯 Intent analysis complete', {
         intent: analysis.intent,
@@ -313,7 +315,9 @@ Respond ONLY in JSON:
         temperature: 0.1
       });
 
-      const analysis = JSON.parse(result.content);
+      // Strip markdown code blocks if present (LLM sometimes wraps JSON in ```json ... ```)
+      const cleanJson = result.content.replace(/```json\s*|\s*```/g, '').trim();
+      const analysis = JSON.parse(cleanJson);
 
       return {
         safe: analysis.safe,

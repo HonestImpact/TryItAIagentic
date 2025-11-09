@@ -103,7 +103,7 @@ export default function TrustRecoveryProtocol() {
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [sessionArtifacts, setSessionArtifacts] = useState<SessionArtifact[]>([]);
   const [skepticMode, setSkepticMode] = useState(false);
-  const [trustLevel, setTrustLevel] = useState(40);
+  const [credibilityLevel, setCredibilityLevel] = useState(40);
   const [challengedMessages, setChallengedMessages] = useState<Set<number>>(new Set());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [interfaceLocked, setInterfaceLocked] = useState(false);
@@ -133,12 +133,12 @@ export default function TrustRecoveryProtocol() {
     }
   }, []);
 
-  // Update trust dot color
-  const getTrustColor = useCallback(() => {
-    if (trustLevel < 40) return 'var(--trust-low)';
-    if (trustLevel < 70) return 'var(--trust-med)';
+  // Update credibility indicator color
+  const getCredibilityColor = useCallback(() => {
+    if (credibilityLevel < 40) return 'var(--trust-low)';
+    if (credibilityLevel < 70) return 'var(--trust-med)';
     return 'var(--trust-high)';
-  }, [trustLevel]);
+  }, [credibilityLevel]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -213,9 +213,9 @@ export default function TrustRecoveryProtocol() {
           return;
         }
 
-        // Update trust level from backend (Trust Recovery Protocol)
+        // Update credibility from backend (tracks Noah's earned credibility)
         if (typeof data.trustLevel === 'number') {
-          setTrustLevel(data.trustLevel);
+          setCredibilityLevel(data.trustLevel);
         }
 
         // Add the assistant message
@@ -411,7 +411,7 @@ export default function TrustRecoveryProtocol() {
               content: `I want to challenge your previous response: "${message.content}". Can you think about this differently or explain your reasoning more clearly?`
             }
           ],
-          trustLevel,
+          trustLevel: credibilityLevel,
           skepticMode
         }),
       });
@@ -434,9 +434,9 @@ export default function TrustRecoveryProtocol() {
         timestamp: Date.now()
       }]);
 
-      // Update trust level from backend (Trust Recovery Protocol)
+      // Update credibility from backend
       if (typeof data.trustLevel === 'number') {
-        setTrustLevel(data.trustLevel);
+        setCredibilityLevel(data.trustLevel);
       }
 
       // Handle artifact if present in challenge response
@@ -468,7 +468,7 @@ export default function TrustRecoveryProtocol() {
     }
 
     setIsLoading(false);
-  }, [messages, trustLevel, skepticMode, isLoading, interfaceLocked]);
+  }, [messages, credibilityLevel, skepticMode, isLoading, interfaceLocked]);
 
   // Memoized message list to prevent unnecessary re-renders
   const messagesWithMemoization = useMemo(() => {
@@ -1211,10 +1211,10 @@ export default function TrustRecoveryProtocol() {
           {/* Features bar (appears after first response) */}
           <div className={`features-bar ${hasStarted && messages.length > 0 ? 'visible' : ''}`}>
             <div className="feature-item">
-              <span className="feature-label">Trust</span>
+              <span className="feature-label">Credibility</span>
               <div className="trust-indicator">
-                <span className="trust-dot" style={{ background: getTrustColor() }}></span>
-                <span className="feature-value">{trustLevel}%</span>
+                <span className="trust-dot" style={{ background: getCredibilityColor() }}></span>
+                <span className="feature-value">{credibilityLevel}%</span>
               </div>
             </div>
             <div className="feature-item">

@@ -1,8 +1,12 @@
 /**
- * Trust Recovery Protocol Service
+ * Credibility Tracking Service
  *
- * Core principle: Trust increases when users challenge Noah and Noah responds honestly.
- * This service tracks trust events and calculates trust scores per session.
+ * Measures Noah's earned credibility through his behavior:
+ * - Being challenged LOWERS credibility (Noah said something questionable)
+ * - Admitting uncertainty RAISES credibility (Noah is being honest)
+ *
+ * This is NOT measuring user trust - it's measuring Noah's credible behavior.
+ * Database: trust_events (implementation detail, tracks credibility events)
  */
 
 import { analyticsDb } from '../analytics/database';

@@ -901,8 +901,8 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
       }
     }
 
-    // 🤝 TRUST RECOVERY PROTOCOL - Track trust events
-    let trustLevel = 40; // Default: skeptical but open to possibilities
+    // 🤝 CREDIBILITY TRACKING - Measure Noah's earned credibility
+    let trustLevel = 40; // Default: 40% baseline credibility
     if (conversationState.sessionId) {
       try {
         const trustService = getTrustService();

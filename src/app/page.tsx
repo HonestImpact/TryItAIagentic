@@ -111,13 +111,16 @@ export default function TrustRecoveryProtocol() {
   const [currentAgent, setCurrentAgent] = useState('Noah');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && messagesContainerRef.current) {
       const scrollTimeout = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
       }, 100);
 
       return () => clearTimeout(scrollTimeout);
@@ -1110,7 +1113,7 @@ export default function TrustRecoveryProtocol() {
             </div>
           )}
 
-          <div className="messages-container">
+          <div className="messages-container" ref={messagesContainerRef}>
             {messagesWithMemoization}
 
             {isLoading && (

@@ -1190,7 +1190,7 @@ export default function TrustRecoveryProtocol() {
             {sessionArtifacts.length === 0 && (
               <div className="video-container">
                 <iframe
-                  src="https://www.youtube.com/embed/Zf_Z66SX7wk?rel=0&modestbranding=1&showinfo=0"
+                  src="https://www.youtube.com/embed/Zf_Z66SX7wk?rel=0&modestbranding=1&loop=1&playlist=Zf_Z66SX7wk"
                   title="Meet Noah - AI for Skeptics"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen>

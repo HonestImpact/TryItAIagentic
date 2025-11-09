@@ -108,7 +108,6 @@ export default function TrustRecoveryProtocol() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [interfaceLocked, setInterfaceLocked] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
-  const [currentAgent, setCurrentAgent] = useState('Noah');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -214,13 +213,6 @@ export default function TrustRecoveryProtocol() {
           return;
         }
 
-        // Update agent if provided
-        if (data.agentStrategy?.selectedAgent) {
-          const agentName = data.agentStrategy.selectedAgent.charAt(0).toUpperCase() +
-                           data.agentStrategy.selectedAgent.slice(1);
-          setCurrentAgent(agentName);
-        }
-
         // Update trust level from backend (Trust Recovery Protocol)
         if (typeof data.trustLevel === 'number') {
           setTrustLevel(data.trustLevel);
@@ -310,6 +302,7 @@ export default function TrustRecoveryProtocol() {
                   setArtifact({
                     title: artifactData.artifact.title,
                     content: artifactData.artifact.content,
+                    agent: artifactData.agentStrategy?.selectedAgent || 'noah',
                     beautyCheck: artifactData.artifact.beautyCheck
                   });
                 }, 800);
@@ -351,6 +344,7 @@ export default function TrustRecoveryProtocol() {
             setArtifact({
               title: data.artifact.title,
               content: data.artifact.content,
+              agent: data.agentStrategy?.selectedAgent || 'noah',
               beautyCheck: data.artifact.beautyCheck
             });
           }, 800);
@@ -452,6 +446,7 @@ export default function TrustRecoveryProtocol() {
           setArtifact({
             title: data.artifact.title,
             content: data.artifact.content,
+            agent: data.agentStrategy?.selectedAgent || 'noah',
             beautyCheck: data.artifact.beautyCheck
           });
         }, 800);
@@ -1221,10 +1216,6 @@ export default function TrustRecoveryProtocol() {
                 <span className="trust-dot" style={{ background: getTrustColor() }}></span>
                 <span className="feature-value">{trustLevel}%</span>
               </div>
-            </div>
-            <div className="feature-item">
-              <span className="feature-label">Agent</span>
-              <span className="feature-value">{currentAgent}</span>
             </div>
             <div className="feature-item">
               <span className="feature-label">Skeptic Mode</span>

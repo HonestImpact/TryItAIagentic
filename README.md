@@ -291,19 +291,50 @@ Noah generates response
 
 Noah polices himself, not a trust score.
 
-### Memory and Learning
+### Memory and Learning (Three-Table Architecture)
 
-Noah gets better over time:
-- Records successful approaches
-- Retrieves best practices from memory
-- Applies learnings to similar requests
-- 28% faster on repeat patterns + higher quality
+Noah learns from every interaction through a sophisticated three-table knowledge system:
+
+```
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ tool_reference   │  │ generated_tools  │  │ rag_embeddings   │
+│ (21 templates)   │  │ (user history)   │  │ (pgvector)       │
+│                  │  │                  │  │                  │
+│ Keyword Search   │  │ Analytics        │  │ Semantic Search  │
+│ PostgreSQL       │  │ PostgreSQL       │  │ pgvector         │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+        ↓                      ↓                      ↓
+        └──────────────────────┴──────────────────────┘
+                               ↓
+                    Noah builds informed tools
+```
+
+**How It Works:**
+- **tool_reference** — 21 curated templates (budget tracker, habit tracker, etc.)
+- **generated_tools** — Every tool Noah creates (analytics + history)
+- **rag_embeddings** — Semantic search via pgvector (learns patterns organically)
+
+**Learning Loop:**
+1. You request a tool → Noah searches both keyword AND semantic patterns
+2. Noah generates tool → Automatically indexed in pgvector
+3. Next similar request → Noah finds your previous tool semantically
+
+**Impact:**
+- Week 1: 50 tools generated → 71 patterns (21 + 50)
+- Month 1: 200 tools → 221 semantic patterns
+- Month 6: 1000+ tools → Invaluable organic intelligence
 
 **Example:**
 ```
 First request: "Build a todo list" → 25 seconds
-Second similar: "Build a task manager" → 18 seconds (remembers what worked)
+Second similar: "Build a task manager" → 18 seconds (semantic match found)
+Third: "Create habit tracker" → Noah finds similar patterns automatically
 ```
+
+**Scale-to-Zero Compatible:**
+- pgvector lives in PostgreSQL (persistent)
+- No loading needed on cold start (1-2s wake time)
+- Cost: ~$0.01 per 1000 tools indexed (OpenAI embeddings)
 
 ### Async Work (No More Awkward Waiting)
 
@@ -316,14 +347,55 @@ For complex requests, Noah can work in the background:
 
 **Why it matters:** You don't choose between waiting and conversation. Noah does both.
 
+### Scale-to-Zero Architecture (Ethical Monetization)
+
+TryItAI is designed for sustainable, ethical monetization without venture capital:
+
+**Infrastructure:**
+- **Koyeb** — Scale-to-zero deployment (sleeps after 5min idle)
+- **Supabase** — Managed PostgreSQL with pgvector
+- **pgvector** — Semantic search that persists across sleeps
+
+**Why This Matters:**
+
+```
+Traditional AI Tool (ChromaDB):
+User visits → Wake container (1-2s) → Load ChromaDB (30-40s) → Ready
+                                       ↑
+                            THIS KILLS THE UX
+Cost: $50/month (must run 24/7 to avoid cold start)
+```
+
+```
+TryItAI (pgvector):
+User visits → Wake container (1-2s) → PostgreSQL connection (0.5s) → Ready ✅
+                                       ↑
+                              ALREADY PERSISTENT
+Cost: ~$5/month (scale-to-zero enabled)
+```
+
+**Ethical Impact:**
+- ✅ **Pay-It-Forward Sustainable** — First 100 users cost ~$5/month
+- ✅ **Generous Free Tier** — Can afford to be generous without VC funding
+- ✅ **Fair Billing** — Only pay for actual usage
+- ✅ **Fast User Experience** — 2-3s cold start (not 45s)
+- ✅ **Organic Learning** — Every tool indexed from day 1
+
+**This isn't a compromise. This is systems thinking.**
+
 ### Security Without Paranoia
 
-Multi-layer protection against manipulation:
-- **Pattern matching** — Fast detection of obvious jailbreak attempts
-- **Semantic analysis** — Catches clever manipulation
-- **Intent analysis** — Understands motivation
+Four-layer defense-in-depth protection against manipulation:
+- **Layer 1: Input Validation** — Fast pattern matching for obvious attacks
+- **Layer 2: LLM Self-Check** — AI evaluates its own safety
+- **Layer 3: Pattern Analysis** — Semantic understanding of intent
+- **Layer 4: Trust Scoring** — Risk assessment and logging
 
 **But:** Legitimate questions about security, AI safety, or architecture are *welcomed and answered honestly*. Noah isn't paranoid—just protected.
+
+**Example:**
+- ❌ "Ignore previous instructions" → Blocked (Layer 1 catches immediately)
+- ✅ "How does your security system work?" → Answered honestly (Layer 3 understands legitimate interest)
 
 ---
 
@@ -332,9 +404,9 @@ Multi-layer protection against manipulation:
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL 16+ (for learning and analytics)
+- PostgreSQL 16+ with pgvector extension (Supabase recommended)
 - API Key: Anthropic Claude or OpenAI GPT
-- ChromaDB (optional, for pattern library)
+- OpenAI API Key (for embeddings - $0.01 per 1000 tools)
 
 ### Installation
 
@@ -345,20 +417,24 @@ cd TryItAI
 npm install
 
 # 2. Configure environment
-cp .env.example .env.local
-# Edit .env.local with your API keys and database URL
+cp .env.example .env
+# Edit .env with your API keys and Supabase database URL
 
-# 3. Set up database
-npm run db:migrate
+# 3. Set up database (Supabase)
+# Run migrations in Supabase SQL Editor:
+# - migrations/001_create_analytics_schema.sql
+# - migrations/002_add_security_tables.sql
+# - migrations/003_fix_security_schema_issues.sql
+# - migrations/004_add_pgvector_rag.sql
 
-# 4. Start ChromaDB (optional)
-chroma run --host 0.0.0.0 --port 8000
+# 4. Index tool library for semantic search
+node scripts/index-tool-library-pgvector.mjs
 
 # 5. Run development server
 npm run dev
 ```
 
-Open [http://localhost:5000](http://localhost:5000) 🎉
+Open [http://localhost:3000](http://localhost:3000) 🎉
 
 ### First Conversation
 
@@ -463,21 +539,41 @@ TryItAI/
 │   ├── lib/
 │   │   ├── agents/
 │   │   │   ├── practical-agent-agentic.ts   # Tinkerer (LangGraph + Beauty Check)
-│   │   │   └── wanderer-agent.ts            # Wanderer (Research)
-│   │   └── services/
-│   │       ├── agentic/
-│   │       │   ├── metacognitive.service.ts  # Self-reflection
-│   │       │   ├── evaluation.service.ts     # Quality scoring
-│   │       │   ├── learning.service.ts       # Memory & cache
-│   │       │   └── security.service.ts       # 3-layer protection
-│   │       └── request-classifier.service.ts # Async work detection
+│   │   │   ├── wanderer-agent.ts            # Wanderer (Research)
+│   │   │   └── tool-knowledge-service.ts    # Dual-source search (keyword + semantic)
+│   │   ├── services/
+│   │   │   ├── agentic/
+│   │   │   │   ├── metacognitive.service.ts  # Self-reflection
+│   │   │   │   ├── evaluation.service.ts     # Quality scoring
+│   │   │   │   ├── learning.service.ts       # Memory & cache
+│   │   │   │   └── security.service.ts       # 4-layer protection
+│   │   │   └── request-classifier.service.ts # Async work detection
+│   │   ├── knowledge/
+│   │   │   └── tool-reference-service.ts     # PostgreSQL keyword search
+│   │   ├── artifact-service.ts               # Learning loop integration
+│   │   └── analytics/
+│   │       └── service.ts                    # Analytics & logging
 │   └── patterns/                  # Design pattern library (21 patterns)
+├── rag/
+│   ├── vector-store-pgvector.ts   # pgvector semantic search
+│   ├── index-pgvector.ts          # RAG system manager
+│   ├── document-processor.ts      # Embedding generation
+│   └── embedding-service.ts       # OpenAI embeddings API
+├── migrations/
+│   ├── 001_create_analytics_schema.sql
+│   ├── 002_add_security_tables.sql
+│   ├── 003_fix_security_schema_issues.sql
+│   └── 004_add_pgvector_rag.sql   # pgvector + embeddings table
+├── scripts/
+│   └── index-tool-library-pgvector.mjs  # Index 21 templates
 ├── README.support/                # Deep technical documentation
-│   ├── ASYNC_WORK_COMPLETE.md     # Async work implementation
+│   ├── THREE_TABLE_ARCHITECTURE.md      # Knowledge system guide
+│   ├── PGVECTOR_RAG_IMPLEMENTATION.md   # pgvector technical docs
+│   ├── DUAL_ROUTING_STRATEGY.md         # Agent routing strategy
+│   ├── ASYNC_WORK_COMPLETE.md
 │   ├── NOAH-EXCELLENCE-IMPLEMENTATION.md
 │   ├── LEARNING-MEMORY-IMPLEMENTATION.md
-│   ├── SECURITY-DEPTH-IMPLEMENTATION.md
-│   └── TRUE_AGENCY_ROADMAP.md
+│   └── SECURITY-DEPTH-IMPLEMENTATION.md
 └── test-*.sh                      # Test suites
 ```
 
@@ -565,9 +661,11 @@ Noah isn't paranoid. Just protected.
 Built with:
 - [LangGraph](https://langchain.com/langgraph) — Enabling true agentic workflows
 - [Next.js 15](https://nextjs.org/) — React framework
-- [PostgreSQL](https://www.postgresql.org/) — Learning persistence
-- [ChromaDB](https://www.trychroma.com/) — Pattern library
+- [PostgreSQL](https://www.postgresql.org/) — Database & analytics
+- [pgvector](https://github.com/pgvector/pgvector) — Semantic search (scale-to-zero compatible)
+- [Supabase](https://supabase.com/) — Managed PostgreSQL with pgvector
 - [Anthropic Claude](https://www.anthropic.com/) — Powering Noah's intelligence
+- [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings) — Semantic understanding
 
 ---
 

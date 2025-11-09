@@ -16,8 +16,8 @@ const logger = createLogger('TrustService');
 
 export interface TrustEvent {
   sessionId: string;
-  eventType: 'challenge' | 'admission_of_uncertainty' | 'correction' | 'skeptic_mode_enabled';
-  impactScore: number; // How much this event should affect trust
+  eventType: 'challenge' | 'admission_of_uncertainty' | 'correction' | 'skeptic_mode_enabled' | 'positive_feedback';
+  impactScore: number; // How much this event should affect credibility
   context?: string;
 }
 

@@ -38,18 +38,23 @@ const MessageComponent = React.memo(({
   message,
   index,
   onChallenge,
+  onAppreciate,
   isAlreadyChallenged,
+  isAlreadyAppreciated,
   isLoading,
   interfaceLocked
 }: {
   message: Message;
   index: number;
   onChallenge: (index: number) => void;
+  onAppreciate: (index: number) => void;
   isAlreadyChallenged: boolean;
+  isAlreadyAppreciated: boolean;
   isLoading: boolean;
   interfaceLocked: boolean;
 }) => {
   const handleChallenge = useCallback(() => onChallenge(index), [onChallenge, index]);
+  const handleAppreciate = useCallback(() => onAppreciate(index), [onAppreciate, index]);
 
   const time = new Date(message.timestamp!).toLocaleTimeString('en-US', {
     hour: 'numeric',
@@ -75,17 +80,29 @@ const MessageComponent = React.memo(({
             <div className="message-time">{time}</div>
           </div>
           <div className="message-content">{message.content}</div>
-          {!isAlreadyChallenged && !isLoading && !interfaceLocked && (
-            <a
-              href="#"
-              className="challenge-link"
-              onClick={(e) => { e.preventDefault(); handleChallenge(); }}
-            >
-              (challenge this?)
-            </a>
+          {!isAlreadyChallenged && !isAlreadyAppreciated && !isLoading && !interfaceLocked && (
+            <div className="message-feedback-actions">
+              <a
+                href="#"
+                className="challenge-link"
+                onClick={(e) => { e.preventDefault(); handleChallenge(); }}
+              >
+                (challenge this?)
+              </a>
+              <a
+                href="#"
+                className="appreciate-link"
+                onClick={(e) => { e.preventDefault(); handleAppreciate(); }}
+              >
+                (good response?)
+              </a>
+            </div>
           )}
           {isAlreadyChallenged && (
-            <div className="text-xs text-green-400 mt-2">✓ Challenged</div>
+            <div className="text-xs text-red-400 mt-2">⚠ Challenged (-5% credibility)</div>
+          )}
+          {isAlreadyAppreciated && (
+            <div className="text-xs text-green-400 mt-2">✓ Good response (+5% credibility)</div>
           )}
         </>
       )}
@@ -105,6 +122,7 @@ export default function TrustRecoveryProtocol() {
   const [skepticMode, setSkepticMode] = useState(false);
   const [credibilityLevel, setCredibilityLevel] = useState(40);
   const [challengedMessages, setChallengedMessages] = useState<Set<number>>(new Set());
+  const [appreciatedMessages, setAppreciatedMessages] = useState<Set<number>>(new Set());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [interfaceLocked, setInterfaceLocked] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -470,6 +488,42 @@ export default function TrustRecoveryProtocol() {
     setIsLoading(false);
   }, [messages, credibilityLevel, skepticMode, isLoading, interfaceLocked]);
 
+  const appreciateMessage = useCallback(async (messageIndex: number) => {
+    if (isLoading || interfaceLocked) return;
+
+    const message = messages[messageIndex];
+    if (message.role !== 'assistant') return;
+
+    // Mark as appreciated
+    setAppreciatedMessages(prev => new Set(prev).add(messageIndex));
+
+    try {
+      // Send positive feedback event to backend
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          eventType: 'positive_feedback',
+          messageContent: message.content
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update credibility from backend
+        if (typeof data.credibilityLevel === 'number') {
+          setCredibilityLevel(data.credibilityLevel);
+        }
+      }
+    } catch (error) {
+      logger.error('Appreciation feedback failed', { error: error instanceof Error ? error.message : String(error) });
+      // Keep the UI mark even if backend fails
+    }
+  }, [messages, isLoading, interfaceLocked, currentSessionId]);
+
   // Memoized message list to prevent unnecessary re-renders
   const messagesWithMemoization = useMemo(() => {
     return messages.map((message, index) => (
@@ -478,12 +532,14 @@ export default function TrustRecoveryProtocol() {
         message={message}
         index={index}
         onChallenge={challengeMessage}
+        onAppreciate={appreciateMessage}
         isAlreadyChallenged={challengedMessages.has(index)}
+        isAlreadyAppreciated={appreciatedMessages.has(index)}
         isLoading={isLoading}
         interfaceLocked={interfaceLocked}
       />
     ));
-  }, [messages, challengedMessages, isLoading, challengeMessage, interfaceLocked]);
+  }, [messages, challengedMessages, appreciatedMessages, isLoading, challengeMessage, appreciateMessage, interfaceLocked]);
 
   // Auto-resize textarea
   const autoResize = useCallback(() => {
@@ -703,9 +759,16 @@ export default function TrustRecoveryProtocol() {
           background: var(--charcoal-light);
         }
 
-        .challenge-link {
-          display: inline-block;
+        .message-feedback-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           margin-top: 0.5rem;
+        }
+
+        .challenge-link,
+        .appreciate-link {
+          display: inline-block;
           color: var(--gray-dark);
           font-size: 0.813rem;
           text-decoration: none;
@@ -715,6 +778,10 @@ export default function TrustRecoveryProtocol() {
 
         .challenge-link:hover {
           color: var(--amber);
+        }
+
+        .appreciate-link:hover {
+          color: var(--electric-blue);
         }
 
         .typing {

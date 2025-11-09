@@ -5,8 +5,10 @@
  * This service tracks trust events and calculates trust scores per session.
  */
 
-import { AnalyticsDatabase } from '../analytics/database';
-import { logger } from '../logging';
+import { analyticsDb } from '../analytics/database';
+import { createLogger } from '../logger';
+
+const logger = createLogger('TrustService');
 
 export interface TrustEvent {
   sessionId: string;
@@ -16,12 +18,7 @@ export interface TrustEvent {
 }
 
 export class TrustService {
-  private analyticsDb: AnalyticsDatabase;
   private trustCache: Map<string, number> = new Map();
-
-  constructor() {
-    this.analyticsDb = AnalyticsDatabase.getInstance();
-  }
 
   /**
    * Get current trust level for a session
@@ -37,7 +34,7 @@ export class TrustService {
 
     try {
       // Calculate trust from event history
-      const result = await this.analyticsDb.executeQuery<{ trust_score: number }[]>(
+      const result = await analyticsDb.executeQuery<{ trust_score: number }[]>(
         `SELECT
           LEAST(100, GREATEST(15, 15 + SUM(impact_score))) as trust_score
          FROM trust_events
@@ -61,7 +58,7 @@ export class TrustService {
   async logTrustEvent(event: TrustEvent): Promise<number> {
     try {
       // Log the event
-      await this.analyticsDb.executeQuery(
+      await analyticsDb.executeQuery(
         `INSERT INTO trust_events (session_id, event_type, impact_score, context)
          VALUES ($1, $2, $3, $4)`,
         [event.sessionId, event.eventType, event.impactScore, event.context || null]

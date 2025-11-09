@@ -9,7 +9,9 @@
  */
 
 import { createLLMProvider } from '../providers/provider-factory';
-import { logger } from '../logging';
+import { createLogger } from '../logger';
+
+const logger = createLogger('AuthenticityService');
 
 export interface AuthenticityEvaluation {
   score: number; // 0-1 scale

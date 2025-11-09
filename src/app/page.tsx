@@ -562,13 +562,12 @@ export default function TrustRecoveryProtocol() {
         }
 
         .chat-section {
-          position: sticky;
-          top: 0;
+          position: relative;
           display: flex;
           flex-direction: column;
           padding: 2rem 2rem 1rem;
-          height: calc(100vh - 300px);
-          min-height: 500px;
+          min-height: 70vh;
+          max-height: 85vh;
           z-index: 10;
         }
 
@@ -818,6 +817,7 @@ export default function TrustRecoveryProtocol() {
           flex-shrink: 0;
           position: relative;
           transition: all 0.6s var(--ease-smooth);
+          margin-top: 2rem;
         }
 
         .features-bar {

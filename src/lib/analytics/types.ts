@@ -104,3 +104,19 @@ export interface MessageAnnotationData {
   annotationValue: string;
   confidenceScore?: number;
 }
+
+export interface ErrorEventData {
+  sessionId: string;
+  conversationId?: string;
+  operation: string;
+  agentInvolved?: string;
+  requestType?: string;
+  errorType: string;
+  errorCategory: string;
+  severity: string;
+  suggestedAction?: string;
+  fallbackStrategy?: string;
+  userMessageLength?: number;
+  attemptNumber?: number;
+  errorDetails?: Record<string, unknown>;
+}

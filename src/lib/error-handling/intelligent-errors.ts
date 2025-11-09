@@ -255,8 +255,10 @@ export class IntelligentErrorHandler {
 
     logger.error('Intelligent error analytics', logData);
 
-    // TODO: Send to analytics service when error tracking is implemented
-    // analyticsService.logErrorEvent(context.sessionId, context.conversationId, logData);
+    // Log to analytics for reliability monitoring and pattern detection
+    if (context.sessionId) {
+      analyticsService.logErrorEvent(context.sessionId, context.conversationId || null, logData);
+    }
   }
 
   /**

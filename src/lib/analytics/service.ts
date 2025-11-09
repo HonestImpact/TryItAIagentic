@@ -299,6 +299,63 @@ class AnalyticsService {
   }
 
   /**
+   * Log error event for reliability monitoring and pattern detection
+   */
+  logErrorEvent(
+    sessionId: string,
+    conversationId: string | null,
+    errorData: {
+      operation: string;
+      agentInvolved?: string;
+      requestType?: string;
+      errorType: string;
+      errorCategory: string;
+      severity: string;
+      suggestedAction?: string;
+      fallbackStrategy?: string;
+      userMessageLength?: number;
+      attemptNumber?: number;
+      [key: string]: unknown;
+    }
+  ): void {
+    if (!this.isEnabled || !sessionId) return;
+
+    // Fire-and-forget error logging
+    setImmediate(async () => {
+      try {
+        const eventData: import('./types').ErrorEventData = {
+          sessionId,
+          conversationId: conversationId || undefined,
+          operation: errorData.operation,
+          agentInvolved: errorData.agentInvolved,
+          requestType: errorData.requestType,
+          errorType: errorData.errorType,
+          errorCategory: errorData.errorCategory,
+          severity: errorData.severity,
+          suggestedAction: errorData.suggestedAction,
+          fallbackStrategy: errorData.fallbackStrategy,
+          userMessageLength: errorData.userMessageLength,
+          attemptNumber: errorData.attemptNumber,
+          errorDetails: errorData
+        };
+
+        await analyticsDb.logErrorEvent(eventData);
+        logger.debug('Error event logged', {
+          operation: errorData.operation,
+          errorType: errorData.errorType,
+          severity: errorData.severity
+        });
+      } catch (error) {
+        logger.error('Error event logging failed', {
+          error: error instanceof Error ? error.message : String(error),
+          operation: errorData.operation,
+          errorType: errorData.errorType
+        });
+      }
+    });
+  }
+
+  /**
    * Health check for analytics system
    */
   async healthCheck(): Promise<{ healthy: boolean; message: string }> {

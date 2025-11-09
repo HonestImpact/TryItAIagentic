@@ -149,6 +149,34 @@ CREATE INDEX IF NOT EXISTS idx_message_annotations_message ON message_annotation
 CREATE INDEX IF NOT EXISTS idx_message_annotations_type ON message_annotations(annotation_type);
 
 -- ======================
+-- ERROR EVENTS
+-- ======================
+CREATE TABLE IF NOT EXISTS error_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES user_sessions(id) ON DELETE CASCADE,
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  operation VARCHAR(100) NOT NULL,
+  agent_involved VARCHAR(50),
+  request_type VARCHAR(100),
+  error_type VARCHAR(100) NOT NULL,
+  error_category VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) NOT NULL,
+  suggested_action VARCHAR(100),
+  fallback_strategy VARCHAR(100),
+  user_message_length INTEGER,
+  attempt_number INTEGER DEFAULT 1,
+  error_details JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_error_events_session ON error_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_error_events_conversation ON error_events(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_error_events_type ON error_events(error_type);
+CREATE INDEX IF NOT EXISTS idx_error_events_category ON error_events(error_category);
+CREATE INDEX IF NOT EXISTS idx_error_events_severity ON error_events(severity);
+CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events(created_at DESC);
+
+-- ======================
 -- COMMENTS
 -- ======================
 COMMENT ON TABLE user_sessions IS 'User session fingerprints and environment data';
@@ -158,3 +186,4 @@ COMMENT ON TABLE generated_tools IS 'ALL generated tools/artifacts with FULL con
 COMMENT ON TABLE tool_usage_events IS 'Tool adoption and usage patterns';
 COMMENT ON TABLE trust_events IS 'Trust level changes for Trust Recovery Protocol';
 COMMENT ON TABLE message_annotations IS 'Rich metadata for messages';
+COMMENT ON TABLE error_events IS 'Error tracking for reliability monitoring and pattern detection';

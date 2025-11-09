@@ -3,15 +3,16 @@
 
 import { createLogger } from '@/lib/logger';
 import { analyticsPool, type PooledQueryOptions } from './connection-pool';
-import type { 
-  SessionData, 
-  ConversationData, 
-  MessageData, 
-  GeneratedToolData, 
+import type {
+  SessionData,
+  ConversationData,
+  MessageData,
+  GeneratedToolData,
   ToolUsageEvent,
   PerformanceMetrics,
   TrustEventData,
-  MessageAnnotationData
+  MessageAnnotationData,
+  ErrorEventData
 } from './types';
 
 const logger = createLogger('analytics-db');
@@ -315,6 +316,47 @@ class AnalyticsDatabase {
       logger.error('Failed to log trust event', { 
         error: error instanceof Error ? error.message : String(error),
         sessionId: trustEventData.sessionId
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Log error event for reliability monitoring
+   */
+  async logErrorEvent(errorData: ErrorEventData): Promise<string | null> {
+    try {
+      const result = await this.executeQuery<{ id: string }[]>(
+        `INSERT INTO error_events (
+          session_id, conversation_id, operation, agent_involved, request_type,
+          error_type, error_category, severity, suggested_action, fallback_strategy,
+          user_message_length, attempt_number, error_details
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING id`,
+        [
+          errorData.sessionId,
+          errorData.conversationId || null,
+          errorData.operation,
+          errorData.agentInvolved || null,
+          errorData.requestType || null,
+          errorData.errorType,
+          errorData.errorCategory,
+          errorData.severity,
+          errorData.suggestedAction || null,
+          errorData.fallbackStrategy || null,
+          errorData.userMessageLength || null,
+          errorData.attemptNumber || 1,
+          errorData.errorDetails ? JSON.stringify(errorData.errorDetails) : '{}'
+        ]
+      );
+
+      return result && result.length > 0 ? result[0].id : null;
+
+    } catch (error) {
+      logger.error('Failed to log error event', {
+        error: error instanceof Error ? error.message : String(error),
+        operation: errorData.operation,
+        errorType: errorData.errorType
       });
       return null;
     }

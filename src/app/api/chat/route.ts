@@ -14,6 +14,8 @@ import { sharedResourceManager, type AgentSharedResources } from '@/lib/agents/s
 import type { ChatMessage, AgentResponse } from '@/lib/agents/types';
 import { analyticsService } from '@/lib/analytics';
 import { analyticsPool } from '@/lib/analytics/connection-pool';
+import { getTrustService } from '@/lib/services/trust.service';
+import { authenticityService } from '@/lib/services/authenticity.service';
 import { NoahSafetyService } from '@/lib/safety';
 import { createAgenticServices, type AgenticServices } from '@/lib/services/agentic';
 import { LLMProvider } from '@/lib/services/llm-provider';
@@ -43,6 +45,28 @@ Requirements:
 Keep tools concise but fully functional.`;
 }
 
+function getSystemPrompt(skepticMode: boolean): string {
+  if (!skepticMode) {
+    return AI_CONFIG.CHAT_SYSTEM_PROMPT;
+  }
+
+  // In Skeptic Mode, Noah is more critical and questioning
+  return AI_CONFIG.CHAT_SYSTEM_PROMPT + `
+
+SKEPTIC MODE ACTIVE:
+You're in Skeptic Mode - the user wants you to be more critical and questioning.
+
+In this mode:
+- Question assumptions and challenge vague requirements
+- Point out potential edge cases, flaws, or overlooked issues
+- Ask clarifying questions to uncover hidden complexity
+- Be more thorough in your analysis before building
+- Highlight trade-offs and alternative approaches explicitly
+- Push back if something seems unclear or potentially problematic
+
+You're still Noah - thoughtful and respectful - but more willing to say "wait, let's think about this" before diving in. The user values your skepticism over eager compliance.`;
+}
+
 // 🚀 MODULE-LEVEL AGENT CACHING - Initialize ONCE, reuse forever
 let wandererInstance: WandererAgent | null = null;
 let tinkererInstance: PracticalAgent | PracticalAgentAgentic | null = null;
@@ -55,6 +79,9 @@ const USE_AGENTIC_TINKERER = process.env.USE_AGENTIC_TINKERER !== 'false'; // De
 
 // Feature flag: Enable async work with conversational continuity
 const ENABLE_ASYNC_WORK = process.env.ENABLE_ASYNC_WORK === 'true'; // Default to false (not implemented yet)
+
+// Feature flag: Enable authenticity self-correction (Noah catches when he sounds too generic)
+const ENABLE_AUTHENTICITY_CHECK = process.env.ENABLE_AUTHENTICITY_CHECK !== 'false'; // Default to true
 
 // Optimized timeout configuration for production
 const NOAH_TIMEOUT = 45000; // 45 seconds for Noah direct responses
@@ -74,7 +101,11 @@ interface ChatResponse {
   content: string;
   status?: string;
   agent?: string;
-  agentStrategy?: string;
+  agentStrategy?: {
+    selectedAgent: 'noah' | 'wanderer' | 'tinkerer';
+    fullPath: string;
+  };
+  trustLevel?: number;
   artifact?: {
     title: string;
     content: string;
@@ -714,7 +745,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
               role: msg.role,
               content: msg.content
             })),
-            system: isToolGeneration ? getToolGenerationPrompt() : AI_CONFIG.CHAT_SYSTEM_PROMPT,
+            system: isToolGeneration ? getToolGenerationPrompt() : getSystemPrompt(skepticMode || false),
             temperature: 0.7
           });
           result = await withTimeout(generatePromise, NOAH_TIMEOUT);
@@ -735,7 +766,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
           role: msg.role,
           content: msg.content
         })),
-        system: isToolGeneration ? getToolGenerationPrompt() : AI_CONFIG.CHAT_SYSTEM_PROMPT,
+        system: isToolGeneration ? getToolGenerationPrompt() : getSystemPrompt(skepticMode || false),
         temperature: 0.7
       });
       result = await withTimeout(generatePromise, NOAH_TIMEOUT);
@@ -823,11 +854,87 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
       }
     }
 
+    // ✨ AUTHENTICITY CHECK - Noah's self-correction layer
+    // Catches when Noah slips into generic-AI mode and regenerates
+    const lastUserMessage = messages[messages.length - 1]?.content || '';
+
+    if (ENABLE_AUTHENTICITY_CHECK) {
+      const patternCheck = authenticityService.quickPatternCheck(noahContent);
+
+      if (patternCheck.needsEvaluation) {
+      logger.info('🎭 Authenticity check triggered', {
+        patterns: patternCheck.suspiciousPatterns,
+        responseLength: noahContent.length
+      });
+
+      try {
+        const evaluation = await authenticityService.evaluateAuthenticity({
+          userMessage: lastUserMessage,
+          noahResponse: noahContent
+        });
+
+        logger.info('🎭 Authenticity evaluation', {
+          score: evaluation.score,
+          isAuthentic: evaluation.isAuthentic,
+          violations: evaluation.violations
+        });
+
+        if (!evaluation.isAuthentic) {
+          logger.warn('🎭 Persona violation detected - regenerating', {
+            score: evaluation.score,
+            violations: evaluation.violations
+          });
+
+          // Self-correct: regenerate with authenticity directive
+          const correctedContent = await authenticityService.regenerateAuthentic(
+            { userMessage: lastUserMessage, noahResponse: noahContent },
+            evaluation.violations
+          );
+
+          noahContent = correctedContent;
+          logger.info('✅ Authenticity self-correction applied');
+        }
+      } catch (error) {
+        logger.error('Authenticity check failed', { error });
+        // Continue with original response if check fails
+      }
+      }
+    }
+
+    // 🤝 TRUST RECOVERY PROTOCOL - Track trust events
+    let trustLevel = 15; // Default: healthy skepticism
+    if (conversationState.sessionId) {
+      try {
+        const trustService = getTrustService();
+        const lastUserMessageLower = lastUserMessage.toLowerCase();
+
+        // Detect challenge (user questioning or pushing back)
+        const challengePhrases = ['challenge', 'disagree', 'not sure about', 'question', 'wrong', 'but what about'];
+        const isChallenge = challengePhrases.some(phrase => lastUserMessageLower.includes(phrase));
+
+        if (isChallenge) {
+          // Log challenge event and get updated trust
+          trustLevel = await trustService.handleChallenge(conversationState.sessionId, lastUserMessage);
+        }
+
+        // Check if Noah admitted uncertainty (increases trust)
+        trustLevel = await trustService.handleAdmissionOfUncertainty(conversationState.sessionId, noahContent);
+
+      } catch (error) {
+        logger.error('Trust tracking failed', { error });
+        // Continue with default trust level
+      }
+    }
+
     const response: ChatResponse = {
       content: noahContent,
       status: 'success',
       agent: agentUsed,
-      agentStrategy: agentStrategy // Show full orchestration path
+      agentStrategy: {
+        selectedAgent: agentUsed,
+        fullPath: agentStrategy
+      },
+      trustLevel
     };
 
     // Include artifact in response for frontend processing
@@ -1025,7 +1132,7 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content
         })),
-        system: AI_CONFIG.CHAT_SYSTEM_PROMPT,
+        system: getSystemPrompt(skepticMode || false),
         temperature: 0.3, // Lower temperature for factual questions
         onFinish: async (completion) => {
           const responseTime = Date.now() - startTime;
@@ -1110,7 +1217,7 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
             role: msg.role as 'user' | 'assistant' | 'system',
             content: msg.content
           })),
-          system: AI_CONFIG.CHAT_SYSTEM_PROMPT,
+          system: getSystemPrompt(skepticMode || false),
           temperature: 0.7,
           onFinish: async (completion) => {
             const responseTime = Date.now() - startTime;
@@ -1156,7 +1263,7 @@ async function noahStreamingChatHandler(req: NextRequest, context: LoggingContex
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content
         })),
-        system: AI_CONFIG.CHAT_SYSTEM_PROMPT,
+        system: getSystemPrompt(skepticMode || false),
         temperature: 0.7,
         onFinish: async (completion) => {
           const responseTime = Date.now() - startTime;

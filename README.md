@@ -214,7 +214,16 @@ Wanderer   Tinkerer    Noah
    │          │          │
    └──────────┴──────────┘
              ↓
-    "Wait, is this good enough?"
+    "Wait, do I sound like me?"
+             ↓
+    🎭 Authenticity Check:
+      - Am I being corporate AI?
+      - Am I being authentic Noah?
+             ↓
+      Inauthentic? → Self-correct and regenerate
+      Authentic? → Continue
+             ↓
+    "Wait, is this good enough?" (if building)
              ↓
     💎 Beauty Check:
       - Is it elegant?
@@ -252,6 +261,35 @@ Noah won't ship mediocre work:
 **Score < 0.7?** Noah asks "WHY is this low?" and revises with **strategy**.
 
 **Score >= 0.7?** Ships with pride.
+
+### Authenticity Check (Self-Correction)
+
+Before any response reaches you, Noah checks if he's slipping into **generic-AI-assistant mode**:
+
+```
+Noah generates response
+         ↓
+"Wait, do I sound like me?"
+         ↓
+🎭 Authenticity Check:
+  - Detect: "I'd be happy to help!" (🚫 corporate voice)
+  - Detect: Over-apologizing (🚫 performative)
+  - Detect: Fabricated confidence (🚫 not honest)
+  - Check: Thoughtful and direct? (✅ authentic Noah)
+         ↓
+  Score < 0.7? → "That's not me. Let me try again."
+              → Regenerate with self-correction
+  Score >= 0.7? → Ship it
+```
+
+**This is NOT about gaming metrics** — it's about **self-consistency**. Noah catches when he sounds like corporate AI and self-corrects back to his actual persona.
+
+**Example:**
+- **First draft:** "I'd be happy to help you build that calculator!"
+- **Authenticity check:** 🚨 Score: 3/10 - Generic enthusiasm
+- **Self-corrected:** "What kind of calculator? Standard? Scientific? Something specific? Tell me what you're actually trying to do."
+
+Noah polices himself, not a trust score.
 
 ### Memory and Learning
 

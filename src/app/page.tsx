@@ -221,6 +221,11 @@ export default function TrustRecoveryProtocol() {
           setCurrentAgent(agentName);
         }
 
+        // Update trust level from backend (Trust Recovery Protocol)
+        if (typeof data.trustLevel === 'number') {
+          setTrustLevel(data.trustLevel);
+        }
+
         // Add the assistant message
         setMessages(prev => [...prev, {
           role: 'assistant',
@@ -396,9 +401,6 @@ export default function TrustRecoveryProtocol() {
     // Mark as challenged
     setChallengedMessages(prev => new Set(prev).add(messageIndex));
 
-    // Increase trust level for challenging (shows the system respects skepticism)
-    setTrustLevel(prev => Math.min(100, prev + 3));
-
     setIsLoading(true);
 
     try {
@@ -438,9 +440,9 @@ export default function TrustRecoveryProtocol() {
         timestamp: Date.now()
       }]);
 
-      // Adjust trust level based on response quality
-      if (data.content.toLowerCase().includes('uncertain') || data.content.toLowerCase().includes('not sure')) {
-        setTrustLevel(prev => Math.min(100, prev + 5));
+      // Update trust level from backend (Trust Recovery Protocol)
+      if (typeof data.trustLevel === 'number') {
+        setTrustLevel(data.trustLevel);
       }
 
       // Handle artifact if present in challenge response
@@ -877,6 +879,51 @@ export default function TrustRecoveryProtocol() {
           transition: background 0.3s;
         }
 
+        .skeptic-toggle {
+          position: relative;
+          display: inline-block;
+          width: 40px;
+          height: 20px;
+          cursor: pointer;
+        }
+
+        .skeptic-toggle input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .toggle-slider {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: var(--charcoal-light);
+          border-radius: 20px;
+          transition: all 0.3s var(--ease-smooth);
+        }
+
+        .toggle-slider:before {
+          content: '';
+          position: absolute;
+          height: 14px;
+          width: 14px;
+          left: 3px;
+          bottom: 3px;
+          background-color: var(--white);
+          border-radius: 50%;
+          transition: all 0.3s var(--ease-smooth);
+        }
+
+        .skeptic-toggle input:checked + .toggle-slider {
+          background-color: var(--electric-blue);
+        }
+
+        .skeptic-toggle input:checked + .toggle-slider:before {
+          transform: translateX(20px);
+        }
+
         .portfolio-btn {
           padding: 0.5rem 1rem;
           background: transparent;
@@ -1178,6 +1225,18 @@ export default function TrustRecoveryProtocol() {
             <div className="feature-item">
               <span className="feature-label">Agent</span>
               <span className="feature-value">{currentAgent}</span>
+            </div>
+            <div className="feature-item">
+              <span className="feature-label">Skeptic Mode</span>
+              <label className="skeptic-toggle">
+                <input
+                  type="checkbox"
+                  checked={skepticMode}
+                  onChange={(e) => setSkepticMode(e.target.checked)}
+                  aria-label="Toggle Skeptic Mode"
+                />
+                <span className="toggle-slider"></span>
+              </label>
             </div>
             <a href="#portfolio" className="portfolio-btn">
               Portfolio

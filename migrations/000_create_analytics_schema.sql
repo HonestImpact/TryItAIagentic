@@ -9,7 +9,7 @@
 CREATE TABLE IF NOT EXISTS user_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_fingerprint VARCHAR(255) UNIQUE NOT NULL,
-  environment JSONB DEFAULT '{}',
+  environment VARCHAR(50) DEFAULT 'production',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

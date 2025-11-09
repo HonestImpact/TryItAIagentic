@@ -902,6 +902,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
     }
 
     // 🤝 CREDIBILITY TRACKING - Measure Noah's earned credibility
+    // Skeptic Mode Handicap: Only user actions count when active
     let trustLevel = 40; // Default: 40% baseline credibility
     if (conversationState.sessionId) {
       try {
@@ -909,6 +910,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
         const lastUserMessageLower = lastUserMessage.toLowerCase();
 
         // Detect challenge (user questioning or pushing back)
+        // USER ACTION - Always applies, even in Skeptic Mode
         const challengePhrases = ['challenge', 'disagree', 'not sure about', 'question', 'wrong', 'but what about'];
         const isChallenge = challengePhrases.some(phrase => lastUserMessageLower.includes(phrase));
 
@@ -918,7 +920,13 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
         }
 
         // Check if Noah admitted uncertainty (increases trust)
-        trustLevel = await trustService.handleAdmissionOfUncertainty(conversationState.sessionId, noahContent);
+        // NOAH'S SELF-ASSESSMENT - Only applies when NOT in Skeptic Mode
+        if (!skepticMode) {
+          trustLevel = await trustService.handleAdmissionOfUncertainty(conversationState.sessionId, noahContent);
+        } else {
+          // In Skeptic Mode, just get current level (Noah's honesty doesn't earn points)
+          trustLevel = await trustService.getTrustLevel(conversationState.sessionId);
+        }
 
       } catch (error) {
         logger.error('Trust tracking failed', { error });

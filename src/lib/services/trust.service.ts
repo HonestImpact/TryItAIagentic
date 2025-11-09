@@ -120,7 +120,7 @@ export class TrustService {
       return this.logTrustEvent({
         sessionId,
         eventType: 'admission_of_uncertainty',
-        impactScore: 8, // +8% for honest admission (helps recover from -5 challenge)
+        impactScore: 2, // +2% for honest admission (modest reward, avoids gaming perception)
         context: 'Admitted uncertainty or reconsidered position'
       });
     }
@@ -135,20 +135,22 @@ export class TrustService {
     return this.logTrustEvent({
       sessionId,
       eventType: 'correction',
-      impactScore: 7, // +7 points for self-correction
+      impactScore: 2, // +2 points for self-correction (modest - let user judge if it was good)
       context: 'Corrected previous response'
     });
   }
 
   /**
    * Handle skeptic mode being enabled
+   * Handicap system: User signals skepticism with real consequence
+   * Only happens once per session (anti-gaming)
    */
   async handleSkepticModeEnabled(sessionId: string): Promise<number> {
     return this.logTrustEvent({
       sessionId,
       eventType: 'skeptic_mode_enabled',
-      impactScore: 2, // +2 points for enabling critical evaluation
-      context: 'User enabled skeptic mode'
+      impactScore: -15, // -15% handicap - user is skeptical, Noah must prove himself
+      context: 'User enabled skeptic mode (handicap applied)'
     });
   }
 

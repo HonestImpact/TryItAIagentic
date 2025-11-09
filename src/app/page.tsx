@@ -120,6 +120,7 @@ export default function TrustRecoveryProtocol() {
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [sessionArtifacts, setSessionArtifacts] = useState<SessionArtifact[]>([]);
   const [skepticMode, setSkepticMode] = useState(false);
+  const [skepticModeTriggered, setSkepticModeTriggered] = useState(false);
   const [credibilityLevel, setCredibilityLevel] = useState(40);
   const [challengedMessages, setChallengedMessages] = useState<Set<number>>(new Set());
   const [appreciatedMessages, setAppreciatedMessages] = useState<Set<number>>(new Set());
@@ -523,6 +524,44 @@ export default function TrustRecoveryProtocol() {
       // Keep the UI mark even if backend fails
     }
   }, [messages, isLoading, interfaceLocked, currentSessionId]);
+
+  const handleSkepticModeToggle = useCallback(async (enabled: boolean) => {
+    if (!currentSessionId) return;
+
+    // Update UI state immediately
+    setSkepticMode(enabled);
+
+    try {
+      // Call API to handle credibility changes
+      const response = await fetch('/api/skeptic-mode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          enabled,
+          alreadyTriggered: skepticModeTriggered
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update credibility level
+        if (typeof data.credibilityLevel === 'number') {
+          setCredibilityLevel(data.credibilityLevel);
+        }
+
+        // Mark as triggered if handicap was applied
+        if (data.handicapApplied) {
+          setSkepticModeTriggered(true);
+        }
+      }
+    } catch (error) {
+      logger.error('Skeptic Mode toggle failed', { error: error instanceof Error ? error.message : String(error) });
+    }
+  }, [currentSessionId, skepticModeTriggered]);
 
   // Memoized message list to prevent unnecessary re-renders
   const messagesWithMemoization = useMemo(() => {
@@ -1290,7 +1329,7 @@ export default function TrustRecoveryProtocol() {
                 <input
                   type="checkbox"
                   checked={skepticMode}
-                  onChange={(e) => setSkepticMode(e.target.checked)}
+                  onChange={(e) => handleSkepticModeToggle(e.target.checked)}
                   aria-label="Toggle Skeptic Mode"
                 />
                 <span className="toggle-slider"></span>

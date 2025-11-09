@@ -103,7 +103,7 @@ export default function TrustRecoveryProtocol() {
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [sessionArtifacts, setSessionArtifacts] = useState<SessionArtifact[]>([]);
   const [skepticMode, setSkepticMode] = useState(false);
-  const [trustLevel, setTrustLevel] = useState(15);
+  const [trustLevel, setTrustLevel] = useState(40);
   const [challengedMessages, setChallengedMessages] = useState<Set<number>>(new Set());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [interfaceLocked, setInterfaceLocked] = useState(false);

@@ -22,9 +22,10 @@ export class TrustService {
 
   /**
    * Get current trust level for a session
-   * Base level: 15% (healthy skepticism)
+   * Base level: 40% (skeptical but open to possibilities)
    * Max level: 100%
-   * Trust increases through challenges and honest responses
+   * Trust DECREASES when challenged (signal of distrust)
+   * Trust INCREASES when Noah responds honestly
    */
   async getTrustLevel(sessionId: string): Promise<number> {
     // Check cache first
@@ -36,19 +37,19 @@ export class TrustService {
       // Calculate trust from event history
       const result = await analyticsDb.executeQuery<{ trust_score: number }[]>(
         `SELECT
-          LEAST(100, GREATEST(15, 15 + SUM(impact_score))) as trust_score
+          LEAST(100, GREATEST(0, 40 + SUM(impact_score))) as trust_score
          FROM trust_events
          WHERE session_id = $1`,
         [sessionId]
       );
 
-      const trustLevel = result[0]?.trust_score || 15;
+      const trustLevel = result[0]?.trust_score || 40;
       this.trustCache.set(sessionId, trustLevel);
 
       return trustLevel;
     } catch (error) {
       logger.error('Failed to calculate trust level', { error, sessionId });
-      return 15; // Default: healthy skepticism
+      return 40; // Default: skeptical but open
     }
   }
 
@@ -78,18 +79,20 @@ export class TrustService {
 
   /**
    * Handle a challenge event
+   * Challenging means trust is LOW - user doesn't believe the response
    */
   async handleChallenge(sessionId: string, messageContent?: string): Promise<number> {
     return this.logTrustEvent({
       sessionId,
       eventType: 'challenge',
-      impactScore: 3, // +3 points for challenging
+      impactScore: -5, // -5% for challenging (signal of distrust)
       context: messageContent
     });
   }
 
   /**
    * Handle Noah admitting uncertainty
+   * Honesty about limitations INCREASES trust (even after challenge)
    * Detected when response contains phrases like "I'm not sure", "I don't know", etc.
    */
   async handleAdmissionOfUncertainty(sessionId: string, responseContent: string): Promise<number> {
@@ -99,7 +102,10 @@ export class TrustService {
       "uncertain",
       "i could be wrong",
       "let me reconsider",
-      "that's a fair point"
+      "that's a fair point",
+      "you're right",
+      "good catch",
+      "i was wrong"
     ];
 
     const containsUncertainty = uncertaintyPhrases.some(phrase =>
@@ -110,7 +116,7 @@ export class TrustService {
       return this.logTrustEvent({
         sessionId,
         eventType: 'admission_of_uncertainty',
-        impactScore: 5, // +5 points for honest admission
+        impactScore: 8, // +8% for honest admission (helps recover from -5 challenge)
         context: 'Admitted uncertainty or reconsidered position'
       });
     }

@@ -902,7 +902,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
     }
 
     // 🤝 TRUST RECOVERY PROTOCOL - Track trust events
-    let trustLevel = 15; // Default: healthy skepticism
+    let trustLevel = 40; // Default: skeptical but open to possibilities
     if (conversationState.sessionId) {
       try {
         const trustService = getTrustService();

@@ -27,15 +27,28 @@
    - Enables historical error pattern analysis
    - **Files**: `migrations/000_create_analytics_schema.sql`, `src/lib/analytics/types.ts`, `src/lib/analytics/database.ts`, `src/lib/analytics/service.ts`, `src/lib/error-handling/intelligent-errors.ts`
 
+3. **BUG #2 Already Fixed** - Agent Display (Previous Session)
+   - Refactored from global `currentAgent` state to per-tool attribution
+   - Backend correctly sends: `agentStrategy: { selectedAgent: 'noah' | 'wanderer' | 'tinkerer', fullPath: 'agentic_tinkerer' }`
+   - Frontend correctly uses: `data.agentStrategy?.selectedAgent`
+   - Tools display: "Created by {agent}" on each card
+   - **Files**: `src/app/page.tsx`, `src/app/api/chat/route.ts`
+
+4. **BUG #8 Already Fixed** - JSON Parse Error Handling (Previous Session)
+   - All `response.json()` calls wrapped in try/catch blocks
+   - User-friendly error messages: "Something went wrong on my end. Want to try that again? I learn from failures."
+   - Specific error handling for chat, challenge, appreciation, and skeptic mode
+   - **Files**: `src/app/page.tsx`
+
 #### 🔧 IMPROVEMENTS
-3. **Credibility Scoring Rebalanced**
+5. **Credibility Scoring Rebalanced**
    - Noah admits uncertainty: 8% → 2% (modest, user is judge)
    - Noah corrects himself: 7% → 2% (modest, user is judge)
    - User appreciates: +5% (primary positive signal)
    - User challenges: -5% (primary negative signal)
    - **Rationale**: User judgment > Noah's self-assessment
 
-4. **Noah Persona Documentation**
+6. **Noah Persona Documentation**
    - Created `README.support/archive/NOAH_PERSONA_BACKUP_2025_11_09.md`
    - Comprehensive backup of system prompts, enforcement mechanisms, examples
    - Includes Skeptic Mode handicap system documentation
@@ -44,8 +57,8 @@
 ### 🔴 BUGS STILL OPEN
 
 **CRITICAL:**
-- BUG #1: Analytics Schema/Code Type Mismatch - **STILL BLOCKING**
-- BUG #2: Frontend Agent Display Type Mismatch - **STILL BROKEN**
+- BUG #1: Analytics Schema/Code Type Mismatch - ✅ **FIXED** (Commit `b930b03`) - Migration ready
+- BUG #2: Frontend Agent Display Type Mismatch - ✅ **ALREADY FIXED** (Refactored in previous session)
 - BUG #3: Koyeb Deployment - **STATUS UNKNOWN** (may be resolved)
 
 **HIGH PRIORITY:**
@@ -55,25 +68,26 @@
 
 **MEDIUM PRIORITY:**
 - BUG #7: Artifact Display Race Condition - **STILL AN ISSUE**
-- BUG #8: JSON Parse Error Crashes - **STILL AN ISSUE**
+- BUG #8: JSON Parse Error Crashes - ✅ **ALREADY FIXED** (All response.json() calls wrapped in try/catch)
 - BUG #9: Message Sequence Corruption - **STILL AN ISSUE**
 
 ### 📋 UPDATED PRIORITIES
 
 **Immediate (Production Critical):**
-1. ✅ ~~Fix Koyeb deployment~~ - May be working now, needs verification
-2. ❌ **Fix Bug #1: Analytics schema mismatch** (15 min) - **CRITICAL BLOCKER**
-3. ❌ Test database writes end-to-end (10 min)
+1. ✅ **Fix Bug #1: Analytics schema mismatch** - FIXED (Commit `b930b03`)
+2. ❌ **Run migration on production database** (5 min) - See `MIGRATION_INSTRUCTIONS.md`
+3. ❌ Verify deployment is working (Koyeb may auto-deploy from push)
 
 **High Priority (User-Facing):**
-4. ❌ Fix Bug #2: Agent display type mismatch (5 min)
+4. ✅ ~~Fix Bug #2: Agent display~~ - Already fixed in previous session
 5. ❌ Fix Bug #4: Update fire-and-forget comments (2 min)
-6. ❌ Fix Bug #8: Add JSON parse error handling (5 min)
+6. ✅ ~~Fix Bug #8: JSON parse error handling~~ - Already fixed in previous session
 
 **Medium Priority (Data Quality):**
 7. ❌ Fix Bug #5: Tool logging race condition (30 min)
 8. 🟡 **Fix Bug #6: Analytics health check** (20 min) - Partially addressed with error tracking
 9. ❌ Fix Bug #9: Message sequence generation (15 min)
+10. ❌ Fix Bug #7: Artifact display race condition (10 min)
 
 ---
 

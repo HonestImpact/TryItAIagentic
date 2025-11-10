@@ -13,6 +13,7 @@
 import { progressRegistry, ProgressStage, type ProgressTracker } from './progress-tracker.service';
 import { sessionStateManager } from './session-state.service';
 import { resultNotificationService } from './result-notification.service';
+import { asyncEventEmitter } from './async-event-emitter.service';
 import type { AsyncWorkItem } from './session-state.service';
 
 export interface WorkExecutor {
@@ -114,8 +115,23 @@ export class AsyncWorkQueue {
       startedAt: Date.now(),
     });
 
-    // Create progress tracker
+    // Get work item for event emission
+    const workItem = sessionStateManager.getActiveWork(sessionId).find(w => w.id === workId);
+
+    // Emit work started event
+    if (workItem) {
+      asyncEventEmitter.emitWorkStarted(sessionId, workId, workItem);
+    }
+
+    // Create progress tracker with event emission
     const tracker = progressRegistry.getOrCreate(workId);
+
+    // Override tracker update to emit progress events
+    const originalUpdate = tracker.update.bind(tracker);
+    tracker.update = (stage: ProgressStage, percentage: number, message: string) => {
+      originalUpdate(stage, percentage, message);
+      asyncEventEmitter.emitWorkProgress(sessionId, workId, stage, percentage, message);
+    };
 
     try {
       // Initial progress
@@ -140,6 +156,9 @@ export class AsyncWorkQueue {
         result,
       });
 
+      // Emit completion event
+      asyncEventEmitter.emitWorkCompleted(sessionId, workId, result);
+
       // Notify completion
       resultNotificationService.notifyCompletion(workId, result);
 
@@ -155,6 +174,9 @@ export class AsyncWorkQueue {
         completedAt: Date.now(),
         error: errorMessage,
       });
+
+      // Emit failure event
+      asyncEventEmitter.emitWorkFailed(sessionId, workId, errorMessage);
 
       // Notify failure
       resultNotificationService.notifyFailure(workId, errorMessage);

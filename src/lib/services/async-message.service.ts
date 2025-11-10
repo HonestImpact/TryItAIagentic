@@ -11,6 +11,7 @@
  */
 
 import { createLogger } from '@/lib/logger';
+import { asyncEventEmitter } from './async-event-emitter.service';
 
 const logger = createLogger('async-message');
 
@@ -73,6 +74,9 @@ export class AsyncMessageService {
     if (requiresResponse) {
       this.pendingQuestions.set(messageId, message);
     }
+
+    // Emit event for real-time notification
+    asyncEventEmitter.emitMessageReceived(sessionId, workId, message);
 
     logger.info('Message sent to user', {
       workId,

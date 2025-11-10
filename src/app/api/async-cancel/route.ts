@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sessionStateManager } from '@/lib/services/session-state.service';
 import { asyncWorkQueue } from '@/lib/services/async-work-queue.service';
+import { asyncEventEmitter } from '@/lib/services/async-event-emitter.service';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('async-cancel');
@@ -49,6 +50,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<CancelRespons
     if (workId) {
       logger.info('Cancelling work item', { workId });
 
+      // Get session ID from work item
+      let workSessionId = sessionId;
+      if (!workSessionId) {
+        // Try to find session ID from active work
+        for (const session of Object.values(sessionStateManager.getAllSessions())) {
+          const work = session.asyncWork.find(w => w.id === workId);
+          if (work) {
+            workSessionId = work.sessionId;
+            break;
+          }
+        }
+      }
+
       // Update work status to cancelled
       sessionStateManager.updateAsyncWork(workId, {
         status: 'cancelled' as any,
@@ -58,6 +72,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<CancelRespons
 
       // Remove from queue if queued
       const queueCancelled = await asyncWorkQueue.cancelWork(workId);
+
+      // Emit cancellation event
+      if (workSessionId) {
+        asyncEventEmitter.emitWorkCancelled(workSessionId, workId);
+      }
 
       if (queueCancelled) {
         logger.info('Work cancelled from queue', { workId });
@@ -90,6 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<CancelRespons
         });
 
         await asyncWorkQueue.cancelWork(work.id);
+        asyncEventEmitter.emitWorkCancelled(sessionId, work.id);
         cancelled.push(work.id);
       }
 
@@ -101,6 +121,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<CancelRespons
           error: 'Cancelled by user'
         });
 
+        asyncEventEmitter.emitWorkCancelled(sessionId, work.id);
         cancelled.push(work.id);
       }
 

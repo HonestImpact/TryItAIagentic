@@ -1,0 +1,11 @@
+This looks like it'll take some thought (~3 minutes). Want me to start working on it while we keep talking? I can let you know when it's ready. 
+
+TITLE: React Dashboard with Authentication & Real-time Updates
+TOOL:
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+Please see the toolbox for the full text. If it's code-based, save the download as an html file and open in a browser.
+
+What would you like to build next, or do you have questions about how this works?

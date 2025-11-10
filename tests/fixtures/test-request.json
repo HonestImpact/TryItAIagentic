@@ -1,0 +1,8 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Build a comprehensive dashboard with interactive charts and data visualization"
+    }
+  ]
+}

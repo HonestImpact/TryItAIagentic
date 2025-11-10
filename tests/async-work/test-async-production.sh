@@ -90,16 +90,22 @@ EOF
         -d "$request_payload" \
         "${API_BASE}/api/chat")
 
+    # Check if response is valid JSON
+    if ! echo "$response" | jq -e '.' > /dev/null 2>&1; then
+        log_error "Invalid JSON response from chat API"
+        echo "Response: $response" | head -10
+        return 1
+    fi
+
     log_info "Response preview:"
-    echo "$response" | jq -r '.content' | head -5
+    echo "$response" | jq -r '.content // .error // "No content"' 2>/dev/null | head -5
 
     # Check if async work was offered
-    if echo "$response" | jq -r '.content' | grep -i "background\|async\|continue talking" > /dev/null; then
+    if echo "$response" | jq -r '.content // ""' 2>/dev/null | grep -i "background\|async\|continue talking" > /dev/null; then
         log_success "Async work offer detected in response"
         return 0
     else
         log_info "No async work offer (might be below threshold or feature disabled)"
-        echo "Full response: $response" | jq '.'
         return 0
     fi
 }
@@ -111,6 +117,13 @@ test_async_status() {
     log_test "Checking async status API"
 
     response=$(curl -s "${API_BASE}/api/async-status?sessionId=${SESSION_ID}")
+
+    # Check if response is valid JSON
+    if ! echo "$response" | jq -e '.' > /dev/null 2>&1; then
+        log_error "Invalid JSON response from async-status API"
+        echo "Response: $response" | head -10
+        return 1
+    fi
 
     log_info "Async status response:"
     echo "$response" | jq '.'

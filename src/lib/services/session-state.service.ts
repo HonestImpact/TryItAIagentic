@@ -2,13 +2,17 @@
  * Session State Management Service
  *
  * Tracks conversation state, async work, and user preferences:
- * - In-memory session storage (MVP, no Redis dependency)
+ * - Write-through cache with Supabase persistence
+ * - In-memory cache for fast access
+ * - Database persistence for scale-to-zero compatibility
  * - Tracks pending/active/completed async work
  * - Conversation history and context
  * - User preferences (async acceptance rate, etc.)
  *
  * Part of Phase 4: Session State Management
  */
+
+import { asyncStatePersistence } from './async-state-persistence.service';
 
 export interface AsyncWorkItem {
   id: string;
@@ -50,12 +54,13 @@ export interface SessionState {
 }
 
 /**
- * Session State Manager (In-Memory MVP)
+ * Session State Manager (Write-Through Cache with Supabase Persistence)
  */
 export class SessionStateManager {
   private sessions: Map<string, SessionState>;
   private cleanupIntervalMs: number;
   private maxSessionAgeMs: number;
+  private persistenceEnabled: boolean;
 
   constructor(
     cleanupIntervalMs: number = 5 * 60 * 1000, // 5 minutes
@@ -64,18 +69,83 @@ export class SessionStateManager {
     this.sessions = new Map();
     this.cleanupIntervalMs = cleanupIntervalMs;
     this.maxSessionAgeMs = maxSessionAgeMs;
+    this.persistenceEnabled = process.env.ENABLE_ASYNC_WORK === 'true';
 
     // Start cleanup interval
     this.startCleanup();
   }
 
   /**
-   * Get or create session
+   * Get or create session (with database persistence)
+   */
+  async getOrCreateAsync(sessionId: string): Promise<SessionState> {
+    // Check in-memory cache first
+    if (this.sessions.has(sessionId)) {
+      const session = this.sessions.get(sessionId)!;
+      session.lastActivityAt = Date.now();
+
+      // Async persist activity update (fire-and-forget)
+      if (this.persistenceEnabled) {
+        asyncStatePersistence.saveSession(session).catch(() => {});
+      }
+
+      return session;
+    }
+
+    // Try to load from database if persistence enabled
+    if (this.persistenceEnabled) {
+      const loadedSession = await asyncStatePersistence.loadSession(sessionId);
+      if (loadedSession) {
+        loadedSession.lastActivityAt = Date.now();
+        this.sessions.set(sessionId, loadedSession);
+
+        // Persist activity update
+        asyncStatePersistence.saveSession(loadedSession).catch(() => {});
+
+        return loadedSession;
+      }
+    }
+
+    // Create new session
+    const now = Date.now();
+    const newSession: SessionState = {
+      sessionId,
+      createdAt: now,
+      lastActivityAt: now,
+      conversationHistory: [],
+      asyncWork: [],
+      preferences: {
+        hasAcceptedAsyncBefore: false,
+        asyncAcceptanceCount: 0,
+        asyncDeclineCount: 0,
+      },
+      metadata: {
+        totalMessages: 0,
+        totalAsyncWork: 0,
+        successfulAsyncWork: 0,
+      },
+    };
+
+    this.sessions.set(sessionId, newSession);
+
+    // Persist to database
+    if (this.persistenceEnabled) {
+      asyncStatePersistence.saveSession(newSession).catch(() => {});
+    }
+
+    return newSession;
+  }
+
+  /**
+   * Get or create session (synchronous, backward compatible)
+   *
+   * Note: This loads from cache only. For full persistence support,
+   * use getOrCreateAsync() instead.
    */
   getOrCreate(sessionId: string): SessionState {
     if (!this.sessions.has(sessionId)) {
       const now = Date.now();
-      this.sessions.set(sessionId, {
+      const newSession: SessionState = {
         sessionId,
         createdAt: now,
         lastActivityAt: now,
@@ -91,7 +161,14 @@ export class SessionStateManager {
           totalAsyncWork: 0,
           successfulAsyncWork: 0,
         },
-      });
+      };
+
+      this.sessions.set(sessionId, newSession);
+
+      // Async persist (fire-and-forget)
+      if (this.persistenceEnabled) {
+        asyncStatePersistence.saveSession(newSession).catch(() => {});
+      }
     }
 
     const session = this.sessions.get(sessionId)!;
@@ -118,6 +195,11 @@ export class SessionStateManager {
     });
 
     session.metadata.totalMessages++;
+
+    // Persist to database
+    if (this.persistenceEnabled) {
+      asyncStatePersistence.saveSession(session).catch(() => {});
+    }
   }
 
   /**
@@ -135,6 +217,12 @@ export class SessionStateManager {
 
     session.asyncWork.push(workItem);
     session.metadata.totalAsyncWork++;
+
+    // Persist work item and session
+    if (this.persistenceEnabled) {
+      asyncStatePersistence.saveWorkItem(workItem).catch(() => {});
+      asyncStatePersistence.saveSession(session).catch(() => {});
+    }
 
     return workId;
   }
@@ -159,6 +247,12 @@ export class SessionStateManager {
 
         if (updates.status === 'completed') {
           session.metadata.successfulAsyncWork++;
+        }
+
+        // Persist work item and session
+        if (this.persistenceEnabled) {
+          asyncStatePersistence.saveWorkItem(work).catch(() => {});
+          asyncStatePersistence.saveSession(session).catch(() => {});
         }
 
         break;
@@ -271,6 +365,11 @@ export class SessionStateManager {
    */
   deleteSession(sessionId: string): void {
     this.sessions.delete(sessionId);
+
+    // Delete from database
+    if (this.persistenceEnabled) {
+      asyncStatePersistence.deleteSession(sessionId).catch(() => {});
+    }
   }
 }
 

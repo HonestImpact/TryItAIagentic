@@ -121,25 +121,28 @@ export class ArtifactService {
             agentStrategy: agentStrategy || 'noah_direct'
           });
 
-          // LEARNING LOOP: Index tool in ChromaDB for semantic search (fire-and-forget)
+          // LEARNING LOOP: Index tool in pgvector for semantic search (true fire-and-forget)
+          // Defer to next event loop tick to avoid blocking response
           if (AI_CONFIG.RAG_ENABLED) {
-            ragSystem.addDocuments([{
-              id: `${conversationState.sessionId}_${artifact.title}_${Date.now()}`,
-              content: artifact.content,
-              metadata: {
-                source: 'generated',
-                type: 'artifact',
-                title: artifact.title,
-                category: artifact.category || artifact.type,
-                timestamp: new Date().toISOString()
-              }
-            }]).catch(error => {
-              logger.warn('Failed to index tool in ChromaDB, continuing', {
-                title: artifact.title,
-                error
+            setImmediate(() => {
+              ragSystem.addDocuments([{
+                id: `${conversationState.sessionId}_${artifact.title}_${Date.now()}`,
+                content: artifact.content,
+                metadata: {
+                  source: 'generated',
+                  type: 'artifact',
+                  title: artifact.title,
+                  category: artifact.category || artifact.type,
+                  timestamp: new Date().toISOString()
+                }
+              }]).catch(error => {
+                logger.warn('Failed to index tool in pgvector, continuing', {
+                  title: artifact.title,
+                  error
+                });
               });
             });
-            logger.debug('Tool indexed in ChromaDB for semantic learning', {
+            logger.debug('Tool queued for pgvector indexing (async)', {
               title: artifact.title
             });
           }
@@ -163,22 +166,24 @@ export class ArtifactService {
               );
               logger.debug('Tool logged after retry', { title: artifact.title });
 
-              // LEARNING LOOP: Index in ChromaDB (retry path)
+              // LEARNING LOOP: Index in pgvector (retry path - true fire-and-forget)
               if (AI_CONFIG.RAG_ENABLED) {
-                ragSystem.addDocuments([{
-                  id: `${conversationState.sessionId}_${artifact.title}_${Date.now()}`,
-                  content: artifact.content,
-                  metadata: {
-                    source: 'generated',
-                    type: 'artifact',
-                    title: artifact.title,
-                    category: artifact.category || artifact.type,
-                    timestamp: new Date().toISOString()
-                  }
-                }]).catch(error => {
-                  logger.warn('Failed to index tool in ChromaDB (retry path)', {
-                    title: artifact.title,
-                    error
+                setImmediate(() => {
+                  ragSystem.addDocuments([{
+                    id: `${conversationState.sessionId}_${artifact.title}_${Date.now()}`,
+                    content: artifact.content,
+                    metadata: {
+                      source: 'generated',
+                      type: 'artifact',
+                      title: artifact.title,
+                      category: artifact.category || artifact.type,
+                      timestamp: new Date().toISOString()
+                    }
+                  }]).catch(error => {
+                    logger.warn('Failed to index tool in pgvector (retry path)', {
+                      title: artifact.title,
+                      error
+                    });
                   });
                 });
               }

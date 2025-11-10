@@ -336,16 +336,43 @@ Third: "Create habit tracker" → Noah finds similar patterns automatically
 - No loading needed on cold start (1-2s wake time)
 - Cost: ~$0.01 per 1000 tools indexed (OpenAI embeddings)
 
-### Async Work (No More Awkward Waiting)
+### Async Work with Full User Control (No More Awkward Waiting)
 
-For complex requests, Noah can work in the background:
+Noah can work in the background with complete transparency and control:
+
+**Intelligent Detection:**
 - Detects opportunities: "This will take a few minutes..."
 - Asks permission: "Want me to start while we keep talking?"
 - Maintains conversation: No awkward silence
+
+**Real-Time Visibility:**
+- Live progress updates via Server-Sent Events (SSE)
+- See current stage, percentage, and status message
+- Track queue position and estimated time remaining
+- Get instant notifications when work completes
+
+**User Control:**
+- Cancel individual work items or all work for a session
+- View detailed status of all async work
+- Respond to questions from async work in progress
+- Bidirectional communication during long operations
+
+**Seamless Experience:**
 - Notifies completion: "Your tool is ready!"
 - Stays contextual: Remembers what you were discussing
+- Survives server restarts (Supabase persistence)
+- Works in scale-to-zero environments
 
-**Why it matters:** You don't choose between waiting and conversation. Noah does both.
+**API Endpoints:**
+```bash
+GET  /api/async-status?sessionId=xxx    # Full status with progress
+POST /api/async-cancel                  # Cancel work
+GET  /api/async-messages?sessionId=xxx  # Retrieve messages
+POST /api/async-messages                # Respond to async work
+GET  /api/async-events?sessionId=xxx    # Real-time SSE updates
+```
+
+**Why it matters:** You don't choose between waiting and conversation. Noah does both, and you control everything.
 
 ### Scale-to-Zero Architecture (Ethical Monetization)
 
@@ -353,8 +380,9 @@ TryItAI is designed for sustainable, ethical monetization without venture capita
 
 **Infrastructure:**
 - **Koyeb** — Scale-to-zero deployment (sleeps after 5min idle)
-- **Supabase** — Managed PostgreSQL with pgvector
+- **Supabase** — Managed PostgreSQL with pgvector + async work persistence
 - **pgvector** — Semantic search that persists across sleeps
+- **Async Work State** — Session state, work items, messages survive restarts
 
 **Why This Matters:**
 
@@ -421,11 +449,10 @@ cp .env.example .env
 # Edit .env with your API keys and Supabase database URL
 
 # 3. Set up database (Supabase)
-# Run migrations in Supabase SQL Editor:
-# - migrations/001_create_analytics_schema.sql
-# - migrations/002_add_security_tables.sql
-# - migrations/003_fix_security_schema_issues.sql
-# - migrations/004_add_pgvector_rag.sql
+# Run migrations in Supabase SQL Editor (in order):
+# - supabase/migrations/001_create_analytics_schema.sql
+# - supabase/migrations/002_add_pgvector_rag.sql
+# - supabase/migrations/003_async_work_state.sql
 
 # 4. Index tool library for semantic search
 node scripts/index-tool-library-pgvector.mjs
@@ -534,7 +561,10 @@ TryItAI/
 │   │   ├── api/
 │   │   │   ├── chat/              # Main conversation endpoint
 │   │   │   ├── analytics/         # Performance metrics
-│   │   │   └── async-status/      # Background work status
+│   │   │   ├── async-status/      # Background work status & progress
+│   │   │   ├── async-cancel/      # Cancel async work
+│   │   │   ├── async-messages/    # Bidirectional messaging
+│   │   │   └── async-events/      # Real-time SSE updates
 │   │   └── page.tsx               # Frontend UI
 │   ├── lib/
 │   │   ├── agents/
@@ -547,7 +577,13 @@ TryItAI/
 │   │   │   │   ├── evaluation.service.ts     # Quality scoring
 │   │   │   │   ├── learning.service.ts       # Memory & cache
 │   │   │   │   └── security.service.ts       # 4-layer protection
-│   │   │   └── request-classifier.service.ts # Async work detection
+│   │   │   ├── request-classifier.service.ts # Async work detection
+│   │   │   ├── session-state.service.ts      # Async work state management
+│   │   │   ├── async-state-persistence.service.ts  # Supabase persistence
+│   │   │   ├── async-work-queue.service.ts   # Background work execution
+│   │   │   ├── async-message.service.ts      # Bidirectional messaging
+│   │   │   ├── async-event-emitter.service.ts  # Real-time SSE events
+│   │   │   └── progress-tracker.service.ts   # Live progress updates
 │   │   ├── knowledge/
 │   │   │   └── tool-reference-service.ts     # PostgreSQL keyword search
 │   │   ├── artifact-service.ts               # Learning loop integration
@@ -559,11 +595,10 @@ TryItAI/
 │   ├── index-pgvector.ts          # RAG system manager
 │   ├── document-processor.ts      # Embedding generation
 │   └── embedding-service.ts       # OpenAI embeddings API
-├── migrations/
+├── supabase/migrations/
 │   ├── 001_create_analytics_schema.sql
-│   ├── 002_add_security_tables.sql
-│   ├── 003_fix_security_schema_issues.sql
-│   └── 004_add_pgvector_rag.sql   # pgvector + embeddings table
+│   ├── 002_add_pgvector_rag.sql          # pgvector + embeddings table
+│   └── 003_async_work_state.sql          # Async work persistence
 ├── scripts/
 │   └── index-tool-library-pgvector.mjs  # Index 21 templates
 ├── README.support/                # Deep technical documentation

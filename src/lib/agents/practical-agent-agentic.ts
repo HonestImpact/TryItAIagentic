@@ -30,6 +30,7 @@ interface TinkererState extends AgentState {
   knowledgeContext?: string;
   patternsUsed?: string[];
   collaborationInsights?: string[]; // IDs of insights used
+  bestPracticesUsed?: number; // Count of best practices from learning cache
 
   // Generation tracking
   generationAttempts: number;
@@ -286,10 +287,27 @@ Examples:
       // Convert state to response
       const response = this.stateToResponse(finalState);
 
+      // Add learning transparency messaging if best practices were used
+      // Check both direct field and metadata (metadata survives iteration resets)
+      const practicesUsed = finalState.bestPracticesUsed || finalState.metadata?.bestPracticesUsed;
+      if (practicesUsed && practicesUsed > 0) {
+        const learningNote = practicesUsed === 1
+          ? `\n\n_I remembered a similar request from before and applied what worked well then. This helped me build something better, faster._`
+          : `\n\n_I pulled from ${practicesUsed} past successes with similar requests. Each time I build, I get a little sharper._`;
+
+        response.content += learningNote;
+
+        logger.info('📚 Added learning transparency message', {
+          bestPractices: practicesUsed,
+          source: finalState.bestPracticesUsed ? 'direct' : 'metadata'
+        });
+      }
+
       logger.info('Tinkerer (Agentic) completed', {
         iterationsUsed: finalState.iterationCount,
         confidence: finalState.confidence,
-        patternsUsed: finalState.patternsUsed?.length || 0
+        patternsUsed: finalState.patternsUsed?.length || 0,
+        bestPracticesUsed: finalState.bestPracticesUsed || 0
       });
 
       // Record workflow outcome for learning (if services available and quality high enough)
@@ -535,14 +553,21 @@ Examples:
             topConfidence: bestPractices[0].confidence
           });
 
+          // Track that we're using best practices (for user-facing transparency)
+          state.bestPracticesUsed = bestPractices.length;
+          // ALSO store in metadata to survive iteration resets
+          if (!state.metadata) state.metadata = {};
+          state.metadata.bestPracticesUsed = bestPractices.length;
+          logger.info('🔢 Set bestPracticesUsed in state', { value: state.bestPracticesUsed });
+
           // Append best practices to knowledge context
           let learningContext = '\n\nBEST PRACTICES FROM PAST SUCCESSES:\n\n';
           bestPractices.forEach((practice, index) => {
             learningContext += `${index + 1}. ${practice.approach} (Confidence: ${(practice.confidence * 100).toFixed(0)}%)\n`;
-            if (practice.whatWorked.length > 0) {
+            if (Array.isArray(practice.whatWorked) && practice.whatWorked.length > 0) {
               learningContext += `   What worked: ${practice.whatWorked.join(', ')}\n`;
             }
-            if (practice.patternsUsed.length > 0) {
+            if (Array.isArray(practice.patternsUsed) && practice.patternsUsed.length > 0) {
               learningContext += `   Patterns: ${practice.patternsUsed.join(', ')}\n`;
               patternsUsed.push(...practice.patternsUsed);
             }
@@ -568,11 +593,19 @@ Examples:
       }
     }
 
-    return {
+    const returnValue = {
       knowledgeContext,
       patternsUsed: [...new Set(patternsUsed)], // Deduplicate
+      bestPracticesUsed: state.bestPracticesUsed, // Include for transparency messaging
       currentStep: 'knowledge_enhanced'
     };
+
+    logger.info('🔄 Knowledge enhancement node returning', {
+      bestPracticesUsed: returnValue.bestPracticesUsed,
+      patternsCount: returnValue.patternsUsed.length
+    });
+
+    return returnValue;
   }
 
   /**
@@ -1030,6 +1063,7 @@ Respond in this EXACT JSON format:
 
         return {
           revisionFeedback: enhancedFeedback,
+          bestPracticesUsed: state.bestPracticesUsed, // Preserve from iteration 1
           currentStep: 'revision_ready'
         };
 
@@ -1041,6 +1075,7 @@ Respond in this EXACT JSON format:
 
     // Standard revision (when metacognition not available)
     return {
+      bestPracticesUsed: state.bestPracticesUsed, // Preserve from iteration 1
       currentStep: 'revision_ready'
     };
   }

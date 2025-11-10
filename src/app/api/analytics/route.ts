@@ -39,9 +39,8 @@ export async function GET() {
       topPatterns: []
     };
 
-    // Security metrics (we'll need to add a method to SecurityService for this)
-    // For now, return placeholder data
-    const securityMetrics = {
+    // Security metrics from SecurityService
+    const securityMetrics = services.security?.getStatistics() || {
       totalValidations: 0,
       blocked: 0,
       warned: 0,

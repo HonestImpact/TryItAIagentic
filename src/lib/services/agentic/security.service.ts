@@ -55,6 +55,12 @@ const logger = createLogger('security-service');
 export class SecurityService implements ISecurityService {
   private userTrustScores = new Map<string, number>();
   private violationHistory = new Map<string, number>();
+  private stats = {
+    totalValidations: 0,
+    blocked: 0,
+    warned: 0,
+    allowed: 0
+  };
 
   constructor(private llmProvider: LLMProvider) {
     logger.info('✅ Security service initialized');
@@ -86,6 +92,16 @@ export class SecurityService implements ISecurityService {
 
     // Combine assessments
     const combined = this.combineAssessments([layer1, layer2, layer3], context);
+
+    // Track statistics
+    this.stats.totalValidations++;
+    if (combined.recommendedAction === 'BLOCK') {
+      this.stats.blocked++;
+    } else if (combined.recommendedAction === 'WARN') {
+      this.stats.warned++;
+    } else {
+      this.stats.allowed++;
+    }
 
     logger.info('✅ Security validation complete', {
       safe: combined.safe,
@@ -214,6 +230,25 @@ Respond ONLY in JSON:
         });
       }
     }
+  }
+
+  /**
+   * Get security statistics for analytics dashboard
+   */
+  getStatistics() {
+    // Calculate average trust score across all users
+    const trustScores = Array.from(this.userTrustScores.values());
+    const averageTrustScore = trustScores.length > 0
+      ? trustScores.reduce((sum, score) => sum + score, 0) / trustScores.length
+      : 1.0;
+
+    return {
+      totalValidations: this.stats.totalValidations,
+      blocked: this.stats.blocked,
+      warned: this.stats.warned,
+      allowed: this.stats.allowed,
+      averageTrustScore: Number(averageTrustScore.toFixed(2))
+    };
   }
 
   // ========================================================================

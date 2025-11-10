@@ -1001,7 +1001,7 @@ async function noahChatHandler(req: NextRequest, context: LoggingContext): Promi
       try {
         const workflowResult = await asyncWorkflowOrchestrator.process({
           sessionId: context.sessionId,
-          userMessage: content,
+          userMessage: lastMessage,
           noahResponse: response.content,
         });
 

@@ -10,7 +10,7 @@ import { analyticsService } from '@/lib/analytics';
 import { createLogger } from '@/lib/logger';
 import { StructuredResponseParser, type ParseResult } from '@/lib/structured-response/parser';
 import type { StructuredResponse } from '@/lib/structured-response/types';
-import { ragSystem } from '@/../../rag/index-pgvector';
+import { ragSystem } from '../../rag/index-pgvector';
 import { AI_CONFIG } from '@/lib/ai-config';
 
 const logger = createLogger('artifact-service');

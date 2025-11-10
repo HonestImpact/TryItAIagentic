@@ -11,7 +11,7 @@
 
 import { createLogger } from '@/lib/logger';
 import { toolReferenceService, type ToolReference } from '@/lib/knowledge/tool-reference-service';
-import { ragSystem } from '@/../../rag/index-pgvector';
+import { ragSystem } from '../../../rag/index-pgvector';
 import { AI_CONFIG } from '@/lib/ai-config';
 
 const logger = createLogger('tool-knowledge');

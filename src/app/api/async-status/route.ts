@@ -14,6 +14,7 @@ import { sessionStateManager } from '@/lib/services/session-state.service';
 import { resultNotificationService } from '@/lib/services/result-notification.service';
 import { asyncWorkQueue } from '@/lib/services/async-work-queue.service';
 import { progressRegistry } from '@/lib/services/progress-tracker.service';
+import { asyncMessageService } from '@/lib/services/async-message.service';
 
 interface StatusResponse {
   sessionId: string;
@@ -24,6 +25,11 @@ interface StatusResponse {
     estimatedDuration: number;
     startedAt?: number;
     elapsedSeconds?: number;
+    progress?: {
+      stage: string;
+      percentage: number;
+      message: string;
+    };
   }>;
   pendingNotifications: Array<{
     id: string;
@@ -32,6 +38,13 @@ interface StatusResponse {
     message: string;
     timestamp: number;
   }>;
+  pendingQuestions: Array<{
+    id: string;
+    workId: string;
+    content: string;
+    timestamp: number;
+  }>;
+  unreadMessageCount: number;
   queueStatus: {
     queued: number;
     executing: number;
@@ -55,18 +68,27 @@ export async function GET(req: NextRequest): Promise<NextResponse<StatusResponse
       );
     }
 
-    // Get active work
+    // Get active work with progress information
     const activeWorkItems = sessionStateManager.getActiveWork(sessionId);
-    const activeWork = activeWorkItems.map((work) => ({
-      id: work.id,
-      type: work.type,
-      status: work.status,
-      estimatedDuration: work.estimatedDuration,
-      startedAt: work.startedAt,
-      elapsedSeconds: work.startedAt
-        ? Math.floor((Date.now() - work.startedAt) / 1000)
-        : undefined,
-    }));
+    const activeWork = activeWorkItems.map((work) => {
+      const tracker = progressRegistry.get(work.id);
+
+      return {
+        id: work.id,
+        type: work.type,
+        status: work.status,
+        estimatedDuration: work.estimatedDuration,
+        startedAt: work.startedAt,
+        elapsedSeconds: work.startedAt
+          ? Math.floor((Date.now() - work.startedAt) / 1000)
+          : undefined,
+        progress: tracker ? {
+          stage: tracker.currentStage,
+          percentage: tracker.progress,
+          message: tracker.statusMessage
+        } : undefined
+      };
+    });
 
     // Get pending notifications
     const notifications = resultNotificationService.getPendingNotifications(sessionId);
@@ -78,6 +100,18 @@ export async function GET(req: NextRequest): Promise<NextResponse<StatusResponse
       timestamp: n.timestamp,
     }));
 
+    // Get pending questions from async messages
+    const questions = asyncMessageService.getPendingQuestions(sessionId);
+    const pendingQuestions = questions.map((q) => ({
+      id: q.id,
+      workId: q.workId,
+      content: q.content,
+      timestamp: q.timestamp
+    }));
+
+    // Get unread message count
+    const unreadMessageCount = asyncMessageService.getUnreadMessages(sessionId).length;
+
     // Get queue status
     const queueStatus = asyncWorkQueue.getStatus();
 
@@ -85,6 +119,8 @@ export async function GET(req: NextRequest): Promise<NextResponse<StatusResponse
       sessionId,
       activeWork,
       pendingNotifications,
+      pendingQuestions,
+      unreadMessageCount,
       queueStatus: {
         queued: queueStatus.queued,
         executing: queueStatus.executing,

@@ -19,7 +19,7 @@ export interface AsyncWorkItem {
   sessionId: string;
   type: 'research' | 'tool';
   request: string;
-  status: 'pending_offer' | 'offered' | 'accepted' | 'in_progress' | 'completed' | 'failed';
+  status: 'pending_offer' | 'offered' | 'accepted' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
   estimatedDuration: number;
   startedAt?: number;
   completedAt?: number;

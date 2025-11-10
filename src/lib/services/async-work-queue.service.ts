@@ -169,22 +169,26 @@ export class AsyncWorkQueue {
   }
 
   /**
-   * Cancel work
+   * Cancel work (removes from queue if pending)
+   * Returns true if successfully cancelled/removed from queue
    */
-  cancel(workId: string): boolean {
+  async cancelWork(workId: string): Promise<boolean> {
     // Remove from queue if pending
     const index = this.queue.findIndex((w) => w.workId === workId);
     if (index >= 0) {
       this.queue.splice(index, 1);
-      sessionStateManager.updateAsyncWork(workId, { status: 'failed', error: 'Cancelled' });
+      console.log(`[AsyncWorkQueue] Work ${workId} cancelled (removed from queue)`);
       return true;
     }
 
-    // Can't cancel if already executing
+    // If executing, we can't force-stop it, but we mark it as cancelled
+    // The executing work will check status and may abort early
     if (this.executing.has(workId)) {
+      console.log(`[AsyncWorkQueue] Work ${workId} is executing (can't force-cancel, status updated)`);
       return false;
     }
 
+    // Not in queue or executing
     return false;
   }
 

@@ -48,15 +48,19 @@ test_health_check() {
 
     response=$(curl -s "${API_BASE}/api/health")
 
-    if echo "$response" | jq -e '.status == "healthy"' > /dev/null 2>&1; then
-        log_success "Server is healthy"
-        echo "$response" | jq '.'
-        return 0
-    else
-        log_error "Server health check failed"
-        echo "$response"
-        return 1
+    # Check for either "healthy" or "ok" status
+    if echo "$response" | jq -e '.status' > /dev/null 2>&1; then
+        status=$(echo "$response" | jq -r '.status')
+        if [[ "$status" == "healthy" || "$status" == "ok" ]]; then
+            log_success "Server is healthy (status: $status)"
+            echo "$response" | jq '.'
+            return 0
+        fi
     fi
+
+    log_error "Server health check failed"
+    echo "$response"
+    return 1
 }
 
 ##

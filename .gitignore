@@ -139,3 +139,7 @@ dist
 .venv/
 *.pyc
 __pycache__/
+# Database archives — data, never committed (may contain user emails/conversations)
+archive/**/*.dump
+archive/**/*.sql
+archive/**/*.sql.gz
